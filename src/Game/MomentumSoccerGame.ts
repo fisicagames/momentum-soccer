@@ -351,9 +351,40 @@ export class MomentumSoccerGame {
     // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
 
     /**
+     * Linha de visão: o corredor entre a peça e o ponto de contato está livre?
+     * Verifica a distância de cada outra peça (e goleiros) ao segmento de tiro.
+     */
+    private isPathBlocked(shooter: Piece, from: Vector3, to: Vector3): boolean {
+        const segX = to.x - from.x, segZ = to.z - from.z;
+        const segLen2 = segX * segX + segZ * segZ;
+        if (segLen2 < 1e-6) return false;
+
+        const blockers: { x: number; z: number; radius: number }[] = [];
+        for (const p of [...this.playerPieces, ...this.cpuPieces]) {
+            if (p === shooter) continue;
+            blockers.push({ x: p.mesh.position.x, z: p.mesh.position.z, radius: p.spec.radius });
+        }
+        for (const gk of [this.playerGK, this.cpuGK]) {
+            blockers.push({ x: gk.mesh.position.x, z: gk.mesh.position.z, radius: gk.halfWidth * 0.7 });
+        }
+
+        for (const blk of blockers) {
+            // Projeção do centro do bloqueador no segmento de tiro (plano XZ)
+            const t = Math.max(0, Math.min(1, ((blk.x - from.x) * segX + (blk.z - from.z) * segZ) / segLen2));
+            const dx = blk.x - (from.x + segX * t);
+            const dz = blk.z - (from.z + segZ * t);
+            const clearance = shooter.spec.radius + blk.radius + 0.04;
+            if (dx * dx + dz * dz < clearance * clearance) return true;
+        }
+        return false;
+    }
+
+    /**
      * Seleção da peça da CPU entre os 10 botões de linha, por média ponderada:
      *  - Proximidade (peso 0.6): peças perto da bola ganham forte preferência;
-     *  - Alinhamento (peso 0.4): ângulo Peça → Bola → Gol adversário.
+     *  - Alinhamento (peso 0.4): ângulo Peça → Bola → Gol adversário;
+     *  - Linha de visão: tiros com o corredor bloqueado por outra peça são
+     *    fortemente penalizados (só saem se não houver opção limpa).
      * A CPU também respeita a regra de toque consecutivo.
      */
     private cpuShoot(): void {
@@ -366,6 +397,7 @@ export class MomentumSoccerGame {
 
         const W_PROXIMITY = 0.6;
         const W_ALIGNMENT = 0.4;
+        const BLOCKED_PENALTY = 0.25;
 
         let best: { piece: Piece; dir: Vector3; dist: number; align: number; score: number } | null = null;
 
@@ -386,7 +418,10 @@ export class MomentumSoccerGame {
             const align = Vector3.Dot(dir, desired);
             const alignment = (align + 1) / 2; // normaliza [-1,1] → [0,1]
 
-            const score = W_PROXIMITY * proximity + W_ALIGNMENT * alignment;
+            let score = W_PROXIMITY * proximity + W_ALIGNMENT * alignment;
+            if (this.isPathBlocked(piece, piece.mesh.position, contact)) {
+                score *= BLOCKED_PENALTY;
+            }
             if (!best || score > best.score) {
                 best = { piece, dir, dist, align, score };
             }
