@@ -10,7 +10,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { RegisterJoinedPhysicsEngineComponent } from "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
-import { PhysicsEventType, IPhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
+import { PhysicsEventType, IPhysicsCollisionEvent, IBasePhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import HavokPhysics from "@babylonjs/havok";
 import { Observer } from "@babylonjs/core/Misc/observable";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
@@ -66,6 +66,9 @@ export class MomentumSoccerGame {
     private cpuGK!: Goalkeeper;
     private ball!: Ball;
 
+    // Gol detectado pelo trigger físico (consumido pela máquina de estados)
+    private pendingGoal: Turn | null = null;
+    private triggerObserver: Observer<IBasePhysicsCollisionEvent> | null = null;
 
     // Sistemas
     private camera!: ArcRotateCamera;
@@ -121,8 +124,9 @@ export class MomentumSoccerGame {
 
         this.setupCamera();
         this.setupLights();
-        Arena.build(this.scene);
+        const goalTriggers = Arena.build(this.scene);
         this.buildTeams();
+        this.setupGoalTriggers(goalTriggers);
         this.buildParticles();
         this.setupCollisionFeedback();
         this.setupSlingshot();
@@ -276,6 +280,7 @@ export class MomentumSoccerGame {
         // Tiro de meta / kickoff: a regra de toque consecutivo é zerada
         this.setLastPlayerPiece(null);
         this.lastCpuPiece = null;
+        this.pendingGoal = null;
     }
 
     /** Atualiza a peça em recuperação do jogador e seu feedback visual. */
@@ -576,6 +581,7 @@ export class MomentumSoccerGame {
                     const goal = this.detectGoal();
                     if (goal) { this.onGoal(goal); break; }
                     if (this.stateTime > 0.7 && (this.maxBodySpeed() < MomentumSoccerGame.SETTLE_SPEED || this.stateTime > MomentumSoccerGame.ROLLING_TIMEOUT)) {
+                        this.checkGoalKick(); // bola morta atrás da linha → tiro de meta
                         this.enterState(this.nextTurn === "player" ? "PLAYER_AIM" : "CPU_TURN");
                     }
                     break;
@@ -616,13 +622,50 @@ export class MomentumSoccerGame {
 
     // ── GOLS E PLACAR ────────────────────────────────────────────────────────
 
-    /** Retorna quem marcou, se a bola cruzou alguma linha de gol. */
+    /**
+     * Detecção estrita de gol via trigger físico do Havok: o gatilho cabe
+     * dentro da boca do gol com o teto abaixo do travessão — bola por cima
+     * da trave nunca interage com ele e não conta gol.
+     */
+    private setupGoalTriggers(triggers: Mesh[]): void {
+        const triggerSides = new Map<string, number>(
+            triggers.map(tm => [tm.name, (tm.metadata as { side: number }).side])
+        );
+        const ballName = this.ball.mesh.name;
+
+        this.triggerObserver = this.plugin.onTriggerCollisionObservable.add((ev) => {
+            if (ev.type !== PhysicsEventType.TRIGGER_ENTERED) return;
+            // Ignora a bola quicando dentro do gol durante a pausa/fim de jogo
+            if (this.gameState === "GOAL_PAUSE" || this.gameState === "GAMEOVER") return;
+            const a = ev.collider.transformNode?.name ?? "";
+            const b = ev.collidedAgainst.transformNode?.name ?? "";
+            const side = triggerSides.get(a) ?? triggerSides.get(b);
+            if (side === undefined || (a !== ballName && b !== ballName)) return;
+            // side +1 = gol da CPU (jogador marcou); -1 = gol do jogador
+            this.pendingGoal = side > 0 ? "player" : "cpu";
+        });
+    }
+
+    /** Consome o gol registrado pelo trigger, se houver. */
     private detectGoal(): Turn | null {
-        const pos = this.ball.mesh.position;
-        if (Math.abs(pos.x) >= Arena.GOAL_W / 2) return null;
-        if (pos.z > Arena.GOAL_LINE_Z + this.ball.radius) return "player"; // gol no campo da CPU
-        if (pos.z < -Arena.GOAL_LINE_Z - this.ball.radius) return "cpu";
-        return null;
+        const goal = this.pendingGoal;
+        this.pendingGoal = null;
+        return goal;
+    }
+
+    /**
+     * Bola parada atrás da linha de fundo sem gol (por cima do travessão ou
+     * ao lado do gol): tiro de meta — bola na pequena área, defesa recomeça.
+     */
+    private checkGoalKick(): boolean {
+        const z = this.ball.mesh.position.z;
+        if (Math.abs(z) <= Arena.GOAL_LINE_Z - 0.1) return false;
+        const side = Math.sign(z);
+        this.teleport(this.ball.mesh, this._tmp.set(0, 0.31, side * (Arena.GOAL_LINE_Z - 2.2)), this.ball.aggregate);
+        this.setLastPlayerPiece(null);
+        this.lastCpuPiece = null;
+        this.nextTurn = side > 0 ? "cpu" : "player"; // a defesa repõe a bola
+        return true;
     }
 
     private onGoal(scorer: Turn): void {
@@ -893,6 +936,7 @@ export class MomentumSoccerGame {
     public dispose(): void {
         if (this.blockedFlashTimer) clearTimeout(this.blockedFlashTimer);
         this.scene.onBeforeRenderObservable.remove(this.gameLoopObserver);
+        this.plugin.onTriggerCollisionObservable.remove(this.triggerObserver);
         this.slingshot.dispose();
 
         this.sparkSystem.dispose();

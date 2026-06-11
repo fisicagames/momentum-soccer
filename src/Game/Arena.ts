@@ -1,6 +1,8 @@
 import { Scene } from "@babylonjs/core/scene";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
@@ -16,18 +18,40 @@ export class Arena {
     public static readonly GOAL_DEPTH = 1.1;
     public static readonly GOAL_LINE_Z = Arena.FIELD_L / 2;
     public static readonly WALL_H = 1.4;
+    public static readonly POST_H = 1.0;
 
-    public static build(scene: Scene): void {
+    /**
+     * Constrói o campo e retorna os triggers de gol (um por extremidade).
+     * `mesh.metadata.side` = +1 (gol da CPU) ou -1 (gol do jogador).
+     */
+    public static build(scene: Scene): Mesh[] {
         Arena.buildGround(scene);
         Arena.buildMarkings(scene);
         Arena.buildWalls(scene);
         Arena.buildGoal(scene, +1);
         Arena.buildGoal(scene, -1);
+        return [Arena.buildGoalTrigger(scene, +1), Arena.buildGoalTrigger(scene, -1)];
     }
 
-    /** Bola dentro da boca do gol (em X)? */
-    public static isInsideGoalMouth(x: number): boolean {
-        return Math.abs(x) < Arena.GOAL_W / 2;
+    /**
+     * Gatilho de gol estritamente dentro da boca: o teto fica abaixo do
+     * travessão, então bola que passa por cima da trave não conta gol.
+     */
+    private static buildGoalTrigger(scene: Scene, side: number): Mesh {
+        const W = Arena.GOAL_W - 0.18;       // entre as traves
+        const H = Arena.POST_H - 0.22;       // teto abaixo do travessão
+        const D = Arena.GOAL_DEPTH * 0.65;
+        const trigger = MeshBuilder.CreateBox(`goalTrigger_${side}`, {
+            width: W, height: H, depth: D,
+        }, scene);
+        trigger.position.set(0, H / 2, side * (Arena.GOAL_LINE_Z + 0.30 + D / 2));
+        trigger.isVisible = false;
+        trigger.isPickable = false;
+        trigger.metadata = { side };
+
+        const aggregate = new PhysicsAggregate(trigger, PhysicsShapeType.BOX, { mass: 0 }, scene);
+        aggregate.shape.isTrigger = true;
+        return trigger;
     }
 
     private static buildGround(scene: Scene): void {
@@ -166,7 +190,7 @@ export class Arena {
         postMat.diffuseColor = new Color3(0.95, 0.95, 0.95);
         postMat.specularColor = new Color3(0.4, 0.4, 0.4);
 
-        const POST_H = 1.0;
+        const POST_H = Arena.POST_H;
         const POST_D = 0.14;
         const z = side * Arena.GOAL_LINE_Z;
 
@@ -180,7 +204,7 @@ export class Arena {
                 { mass: 0, friction: 0.2, restitution: 0.6 }, scene);
         });
 
-        // Travessão
+        // Travessão (com física: bola que bate nele rebate, não entra)
         const bar = MeshBuilder.CreateCylinder(`crossbar_${side}`, {
             height: Arena.GOAL_W + POST_D, diameter: POST_D, tessellation: 16,
         }, scene);
@@ -188,6 +212,24 @@ export class Arena {
         bar.position.set(0, POST_H, z);
         bar.material = postMat;
         bar.isPickable = false;
+        new PhysicsAggregate(bar, PhysicsShapeType.CYLINDER, {
+            mass: 0, friction: 0.2, restitution: 0.6,
+            radius: POST_D / 2,
+            pointA: new Vector3(0, -(Arena.GOAL_W + POST_D) / 2, 0),
+            pointB: new Vector3(0, (Arena.GOAL_W + POST_D) / 2, 0),
+        }, scene);
+
+        // "Teto da rede": colisor invisível sobre a caixa do gol na altura do
+        // travessão — bola que passa por cima da trave cai na rede e rola para
+        // fora, sem nunca entrar no volume do gatilho de gol por cima.
+        const roof = MeshBuilder.CreateBox(`goalRoof_${side}`, {
+            width: Arena.GOAL_W + 0.6, height: 0.1, depth: Arena.GOAL_DEPTH + 0.3,
+        }, scene);
+        roof.position.set(0, POST_H + 0.05, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH / 2));
+        roof.isVisible = false;
+        roof.isPickable = false;
+        new PhysicsAggregate(roof, PhysicsShapeType.BOX,
+            { mass: 0, friction: 0.3, restitution: 0.3 }, scene);
 
         // Rede simplificada: plano translúcido no fundo do gol
         const netMat = new StandardMaterial(`netMat_${side}`, scene);
