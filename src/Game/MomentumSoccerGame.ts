@@ -37,11 +37,11 @@ type Turn = "player" | "cpu";
  * Δp real reportado pelo Havok) e atrito como força externa (damping do feltro).
  */
 export class MomentumSoccerGame {
-    private static readonly MAX_IMPULSE = 11;  // kg·m/s por jogada (igual para todas as peças)
+    private static readonly MAX_IMPULSE = 13;  // kg·m/s por jogada (igual para todas as peças)
     private static readonly MAX_DRAG = 2.2;    // m de recuo para o impulso máximo
     private static readonly WIN_GOALS = 3;
-    private static readonly SETTLE_SPEED = 0.14;
-    private static readonly ROLLING_TIMEOUT = 10; // s
+    private static readonly SETTLE_SPEED = 0.18;
+    private static readonly ROLLING_TIMEOUT = 8; // s
 
     private scene: Scene;
     private plugin!: HavokPlugin;
@@ -211,9 +211,7 @@ export class MomentumSoccerGame {
         ];
 
         for (const f of formation) {
-            const specHeight = (id: ArchetypeId) =>
-                ({ sprinter: 0.20, striker: 0.30, tank: 0.46 } as Record<ArchetypeId, number>)[id];
-            const y = specHeight(f.archetype) / 2 + 0.001;
+            const y = ARCHETYPES[f.archetype].height / 2 + 0.001;
             this.playerPieces.push(createPiece(this.scene, f.archetype, "player", new Vector3(f.x, y, -f.z)));
             this.cpuPieces.push(createPiece(this.scene, f.archetype, "cpu", new Vector3(-f.x, y, f.z)));
         }

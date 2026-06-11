@@ -24,9 +24,9 @@ export interface ArchetypeSpec {
 
 /** Arquétipos de botões: massas bem distintas para evidenciar v = p/m. */
 export const ARCHETYPES: Record<ArchetypeId, ArchetypeSpec> = {
-    sprinter: { id: "sprinter", namePt: "Velocista", nameEn: "Sprinter", mass: 1.0, radius: 0.40, height: 0.20, specular: 0.25 },
-    striker:  { id: "striker",  namePt: "Atacante",  nameEn: "Striker",  mass: 3.0, radius: 0.50, height: 0.30, specular: 0.40 },
-    tank:     { id: "tank",     namePt: "Tanque",    nameEn: "Tank",     mass: 8.0, radius: 0.65, height: 0.46, specular: 0.95 },
+    sprinter: { id: "sprinter", namePt: "Velocista", nameEn: "Sprinter", mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
+    striker:  { id: "striker",  namePt: "Atacante",  nameEn: "Striker",  mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
+    tank:     { id: "tank",     namePt: "Tanque",    nameEn: "Tank",     mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
 };
 
 export interface Piece {
@@ -138,8 +138,8 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     const inertiaY = 0.5 * spec.mass * spec.radius * spec.radius; // cilindro maciço
     aggregate.body.setMassProperties({ mass: spec.mass, inertia: new Vector3(0, inertiaY, 0) });
 
-    // "Atrito do feltro": amortecimento linear constante para parada natural
-    aggregate.body.setLinearDamping(0.22);
+    // "Feltro liso": pouco amortecimento linear — as peças deslizam e ricocheteiam
+    aggregate.body.setLinearDamping(0.06);
     aggregate.body.setAngularDamping(0.9);
 
     // Permite teleporte por manipulação direta do mesh (resets e filtro de segurança)
@@ -210,8 +210,8 @@ export function createBall(scene: Scene, home: Vector3): Ball {
         friction: 0.3,
         restitution: 0.8, // alta elasticidade conforme o design
     }, scene);
-    aggregate.body.setLinearDamping(0.45);
-    aggregate.body.setAngularDamping(0.6);
+    aggregate.body.setLinearDamping(0.08);
+    aggregate.body.setAngularDamping(0.85);
     aggregate.body.disablePreStep = false;
 
     return { mesh, aggregate, radius, mass, home: home.clone() };
