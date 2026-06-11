@@ -307,17 +307,28 @@ export class MomentumSoccerGame {
 
     // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
 
-    /** Escolhe a peça mais bem alinhada para empurrar a bola rumo ao gol do jogador. */
+    /**
+     * Seleção da peça da CPU por média ponderada de dois fatores:
+     *  - Proximidade (peso 0.6): peças perto da bola ganham forte preferência;
+     *  - Alinhamento (peso 0.4): ângulo Peça → Bola → Gol adversário
+     *    (cos do ângulo entre a direção de aproximação e a direção bola→gol).
+     * A CPU também respeita a regra de toque consecutivo.
+     */
     private cpuShoot(): void {
         const ballPos = this.ball.mesh.position;
         const goal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3); // gol do jogador
 
-        let best: { piece: Piece; dir: Vector3; dist: number; align: number } | null = null;
+        const desired = goal.subtract(ballPos);
+        desired.y = 0;
+        desired.normalize();
+
+        const W_PROXIMITY = 0.6;
+        const W_ALIGNMENT = 0.4;
+
+        let best: { piece: Piece; dir: Vector3; dist: number; align: number; score: number } | null = null;
 
         for (const piece of this.cpuPieces) {
-            const desired = goal.subtract(ballPos);
-            desired.y = 0;
-            desired.normalize();
+            if (this.cpuPieces.length > 1 && piece === this.lastCpuPiece) continue;
 
             // Ponto de contato atrás da bola (na direção oposta ao gol-alvo)
             const contact = ballPos.subtract(desired.scale(this.ball.radius + piece.spec.radius));
@@ -327,16 +338,21 @@ export class MomentumSoccerGame {
             if (dist < 0.05) continue;
             dir.normalize();
 
+            // Proximidade: decaimento exponencial — perto de 1 quando a peça está colada na bola
+            const proximity = Math.exp(-dist / 3);
+            // Alinhamento: 1 quando a peça está exatamente atrás da bola em relação ao gol
             const align = Vector3.Dot(dir, desired);
-            const score = align - dist * 0.06;
-            if (!best || score > (best.align - best.dist * 0.06)) {
-                best = { piece, dir, dist, align };
+            const alignment = (align + 1) / 2; // normaliza [-1,1] → [0,1]
+
+            const score = W_PROXIMITY * proximity + W_ALIGNMENT * alignment;
+            if (!best || score > best.score) {
+                best = { piece, dir, dist, align, score };
             }
         }
         if (!best) return;
 
         // Velocidade desejada cresce com a distância; erro humano simulado
-        const speed = Math.min(2.2 + best.dist * 0.9, 6.0) * (0.88 + Math.random() * 0.24);
+        const speed = Math.min(1.8 + best.dist * 0.8, 5.5) * (0.88 + Math.random() * 0.24);
         const noise = (Math.random() - 0.5) * 0.16 * (1.2 - Math.max(best.align, 0));
         const cos = Math.cos(noise), sin = Math.sin(noise);
         const dx = best.dir.x * cos - best.dir.z * sin;
@@ -346,6 +362,7 @@ export class MomentumSoccerGame {
         const impulse = Math.min(best.piece.spec.mass * speed, MomentumSoccerGame.MAX_IMPULSE);
         this._tmp.set(dx * impulse, 0, dz * impulse);
         best.piece.aggregate.body.applyImpulse(this._tmp, best.piece.mesh.getAbsolutePosition());
+        this.lastCpuPiece = best.piece;
 
         this.enterState("ROLLING");
         this.nextTurn = "player";
