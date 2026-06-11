@@ -23,7 +23,7 @@ import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 
 import { Arena } from "./Arena";
-import { Piece, Ball, createPiece, createBall, setPieceRecovering, ARCHETYPES, ArchetypeId } from "./PieceFactory";
+import { Piece, Ball, Goalkeeper, createPiece, createBall, createGoalkeeper, setPieceRecovering, ARCHETYPES, ArchetypeId } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "GAMEOVER";
@@ -62,7 +62,10 @@ export class MomentumSoccerGame {
     // Entidades
     private playerPieces: Piece[] = [];
     private cpuPieces: Piece[] = [];
+    private playerGK!: Goalkeeper;
+    private cpuGK!: Goalkeeper;
     private ball!: Ball;
+
 
     // Sistemas
     private camera!: ArcRotateCamera;
@@ -201,13 +204,26 @@ export class MomentumSoccerGame {
 
     // ── TIMES ─────────────────────────────────────────────────────────────────
 
-    /** Formação: 1 Tanque (defesa), 2 Atacantes (meio) e 1 Velocista (frente). */
+    /**
+     * Formação profissional 3-4-3 (10 botões de linha + goleiro por time):
+     * 3 Tanques na defesa, 4 Atacantes no meio-campo e 3 Velocistas na frente,
+     * cobrindo todo o próprio lado do campo.
+     */
     private buildTeams(): void {
         const formation: { archetype: ArchetypeId; x: number; z: number }[] = [
-            { archetype: "tank",     x: 0,    z: 5.6 },
-            { archetype: "striker",  x: -1.9, z: 3.4 },
-            { archetype: "striker",  x: 1.9,  z: 3.4 },
-            { archetype: "sprinter", x: 0,    z: 1.6 },
+            // Defesa (3 zagueiros pesados)
+            { archetype: "tank",     x: -2.4, z: 5.8 },
+            { archetype: "tank",     x: 0,    z: 6.0 },
+            { archetype: "tank",     x: 2.4,  z: 5.8 },
+            // Meio-campo (4 apoiadores)
+            { archetype: "striker",  x: -3.0, z: 3.8 },
+            { archetype: "striker",  x: -1.0, z: 3.4 },
+            { archetype: "striker",  x: 1.0,  z: 3.4 },
+            { archetype: "striker",  x: 3.0,  z: 3.8 },
+            // Ataque (3 pontas leves)
+            { archetype: "sprinter", x: -2.2, z: 1.4 },
+            { archetype: "sprinter", x: 0,    z: 1.0 },
+            { archetype: "sprinter", x: 2.2,  z: 1.4 },
         ];
 
         for (const f of formation) {
@@ -216,7 +232,29 @@ export class MomentumSoccerGame {
             this.cpuPieces.push(createPiece(this.scene, f.archetype, "cpu", new Vector3(-f.x, y, f.z)));
         }
 
+        const gkY = 0.28 / 2 + 0.001;
+        this.playerGK = createGoalkeeper(this.scene, "player", new Vector3(0, gkY, -(Arena.GOAL_LINE_Z - 0.45)));
+        this.cpuGK = createGoalkeeper(this.scene, "cpu", new Vector3(0, gkY, Arena.GOAL_LINE_Z - 0.45));
+
         this.ball = createBall(this.scene, new Vector3(0, 0.31, 0));
+    }
+
+    /**
+     * Goleiros cinemáticos: deslizam lateralmente acompanhando a bola, com
+     * velocidade limitada (chutes rápidos nos cantos conseguem vencê-los),
+     * sempre paralelos à linha de gol.
+     */
+    private updateGoalkeepers(dt: number): void {
+        const GK_SPEED = 1.1; // m/s
+        const range = Arena.GOAL_W / 2 - 0.35;
+        for (const gk of [this.playerGK, this.cpuGK]) {
+            const targetX = Math.max(-range, Math.min(range, this.ball.mesh.position.x));
+            const delta = targetX - gk.mesh.position.x;
+            const step = Math.max(-GK_SPEED * dt, Math.min(GK_SPEED * dt, delta));
+            gk.mesh.position.x += step;
+            gk.mesh.position.y = gk.home.y;
+            gk.mesh.position.z = gk.home.z;
+        }
     }
 
     private allBodies(): { mesh: Mesh; piece?: Piece }[] {
@@ -232,6 +270,8 @@ export class MomentumSoccerGame {
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
             this.teleport(p.mesh, p.home, p.aggregate);
         }
+        this.playerGK.mesh.position.copyFrom(this.playerGK.home);
+        this.cpuGK.mesh.position.copyFrom(this.cpuGK.home);
         this.teleport(this.ball.mesh, this.ball.home, this.ball.aggregate);
         // Tiro de meta / kickoff: a regra de toque consecutivo é zerada
         this.setLastPlayerPiece(null);
@@ -306,10 +346,9 @@ export class MomentumSoccerGame {
     // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
 
     /**
-     * Seleção da peça da CPU por média ponderada de dois fatores:
+     * Seleção da peça da CPU entre os 10 botões de linha, por média ponderada:
      *  - Proximidade (peso 0.6): peças perto da bola ganham forte preferência;
-     *  - Alinhamento (peso 0.4): ângulo Peça → Bola → Gol adversário
-     *    (cos do ângulo entre a direção de aproximação e a direção bola→gol).
+     *  - Alinhamento (peso 0.4): ângulo Peça → Bola → Gol adversário.
      * A CPU também respeita a regra de toque consecutivo.
      */
     private cpuShoot(): void {
@@ -425,6 +464,8 @@ export class MomentumSoccerGame {
         const dynamicMeshes = new Set<string>([
             ...this.playerPieces.map(p => p.mesh.name),
             ...this.cpuPieces.map(p => p.mesh.name),
+            this.playerGK.mesh.name,
+            this.cpuGK.mesh.name,
             this.ball.mesh.name,
         ]);
 
@@ -526,6 +567,7 @@ export class MomentumSoccerGame {
             this.stateTime += dt;
 
             this.updateCamera();
+            this.updateGoalkeepers(dt);
             this.updateFeedbackAnimations(dt);
             this.safetyFilter();
 
@@ -577,7 +619,7 @@ export class MomentumSoccerGame {
     /** Retorna quem marcou, se a bola cruzou alguma linha de gol. */
     private detectGoal(): Turn | null {
         const pos = this.ball.mesh.position;
-        if (!Arena.isInsideGoalMouth(pos.x)) return null;
+        if (Math.abs(pos.x) >= Arena.GOAL_W / 2) return null;
         if (pos.z > Arena.GOAL_LINE_Z + this.ball.radius) return "player"; // gol no campo da CPU
         if (pos.z < -Arena.GOAL_LINE_Z - this.ball.radius) return "cpu";
         return null;
