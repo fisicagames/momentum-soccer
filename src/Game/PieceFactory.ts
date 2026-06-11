@@ -36,12 +36,10 @@ export interface Piece {
     team: Team;
     /** Posição inicial (formação), usada em resets e no filtro de segurança. */
     home: Vector3;
-    /** Materiais do corpo/botão (para o feedback de "recuperando"). */
+    /** Material do botão (para o feedback de "recuperando"). */
     baseMat: StandardMaterial;
-    knobMat: StandardMaterial;
-    /** Cores originais, restauradas ao fim da recuperação. */
+    /** Cor original, restaurada ao fim da recuperação. */
     baseColor: Color3;
-    knobColor: Color3;
 }
 
 export interface Ball {
@@ -57,8 +55,16 @@ const TEAM_COLORS: Record<Team, { base: Color3; knob: Color3 }> = {
     cpu:    { base: new Color3(0.80, 0.15, 0.12), knob: new Color3(1.0, 0.38, 0.30) },
 };
 
-/** Plano com a massa estampada no topo do botão (reforço visual do conceito). */
+/** Plano com a massa estampada no selo do botão (reforço visual do conceito). */
 function createMassLabel(scene: Scene, spec: ArchetypeSpec, team: Team): Mesh {
+    // Material compartilhado entre as peças do mesmo arquétipo/time (são 22 botões)
+    const cached = scene.getMaterialByName(`massMat_${team}_${spec.id}`) as StandardMaterial | null;
+    if (cached) {
+        const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.78 }, scene);
+        plane.rotation.x = Math.PI / 2;
+        plane.material = cached;
+        return plane;
+    }
     const size = 256;
     const tex = new DynamicTexture(`massTex_${team}_${spec.id}`, { width: size, height: size }, scene, true);
     tex.hasAlpha = true;
@@ -80,10 +86,31 @@ function createMassLabel(scene: Scene, spec: ArchetypeSpec, team: Team): Mesh {
     mat.specularColor = Color3.Black();
     mat.backFaceCulling = false;
 
-    const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 1.25 }, scene);
+    const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.78 }, scene);
     plane.rotation.x = Math.PI / 2;
     plane.material = mat;
     return plane;
+}
+
+/**
+ * Perfil de botão profissional de acrílico (lenticular/saucer), gerado por
+ * superfície de revolução: base plana, bainha externa inclinada, domo convexo
+ * e cavidade central rasa (área do selo). Coordenadas locais centradas em Y.
+ */
+function buttonLatheShape(radius: number, height: number): Vector3[] {
+    const r = radius;
+    const y = (t: number) => t * height - height / 2; // centra o perfil em Y
+    return [
+        new Vector3(0.012, y(0), 0),
+        new Vector3(r * 0.60, y(0), 0),       // base plana
+        new Vector3(r * 0.95, y(0.30), 0),    // bainha inclinada
+        new Vector3(r * 1.00, y(0.55), 0),    // borda externa
+        new Vector3(r * 0.90, y(0.85), 0),    // ombro superior
+        new Vector3(r * 0.58, y(1.00), 0),    // topo do domo
+        new Vector3(r * 0.40, y(0.90), 0),    // desce para a cavidade
+        new Vector3(r * 0.16, y(0.84), 0),    // fundo da cavidade (selo)
+        new Vector3(0.012, y(0.84), 0),
+    ];
 }
 
 export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, home: Vector3): Piece {
@@ -91,11 +118,11 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     const colors = TEAM_COLORS[team];
     const name = `piece_${team}_${archetype}`;
 
-    // Corpo principal: cilindro do botão
-    const base = MeshBuilder.CreateCylinder(name, {
-        diameter: spec.radius * 2,
-        height: spec.height,
-        tessellation: 32,
+    // Corpo do botão: perfil de acrílico em superfície de revolução
+    const base = MeshBuilder.CreateLathe(name, {
+        shape: buttonLatheShape(spec.radius, spec.height),
+        tessellation: 28,
+        sideOrientation: Mesh.DOUBLESIDE,
     }, scene);
     base.position.copyFrom(home);
     base.rotationQuaternion = Quaternion.Identity();
@@ -105,23 +132,10 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     baseMat.specularColor = new Color3(spec.specular, spec.specular, spec.specular);
     base.material = baseMat;
 
-    // "Botão" central elevado (estética de futebol de botão)
-    const knob = MeshBuilder.CreateCylinder(name + "_knob", {
-        diameter: spec.radius * 1.15,
-        height: spec.height * 0.45,
-        tessellation: 32,
-    }, scene);
-    knob.parent = base;
-    knob.position.y = spec.height / 2 + spec.height * 0.45 / 2 - 0.005;
-    const knobMat = new StandardMaterial(name + "_knobMat", scene);
-    knobMat.diffuseColor = colors.knob;
-    knobMat.specularColor = new Color3(spec.specular, spec.specular, spec.specular);
-    knob.material = knobMat;
-
-    // Massa estampada no topo
+    // Massa estampada na cavidade central (selo)
     const label = createMassLabel(scene, spec, team);
     label.parent = base;
-    label.position.y = spec.height / 2 + spec.height * 0.45 + 0.004;
+    label.position.y = spec.height * 0.37; // logo acima do fundo da cavidade
 
     // Física: cilindro explícito (ignora os filhos decorativos)
     const aggregate = new PhysicsAggregate(base, PhysicsShapeType.CYLINDER, {
@@ -147,13 +161,12 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
 
     const piece: Piece = {
         mesh: base, aggregate, spec, team, home: home.clone(),
-        baseMat, knobMat,
-        baseColor: colors.base.clone(), knobColor: colors.knob.clone(),
+        baseMat,
+        baseColor: colors.base.clone(),
     };
 
-    // Metadata para picking do slingshot (inclui filhos decorativos)
+    // Metadata para picking do slingshot (inclui o selo decorativo)
     base.metadata = { piece };
-    knob.metadata = { piece };
     label.metadata = { piece };
 
     return piece;
@@ -167,10 +180,8 @@ export function setPieceRecovering(piece: Piece, recovering: boolean): void {
     if (recovering) {
         const gray = new Color3(0.42, 0.42, 0.46);
         Color3.LerpToRef(piece.baseColor, gray, 0.75, piece.baseMat.diffuseColor);
-        Color3.LerpToRef(piece.knobColor, gray, 0.75, piece.knobMat.diffuseColor);
     } else {
         piece.baseMat.diffuseColor.copyFrom(piece.baseColor);
-        piece.knobMat.diffuseColor.copyFrom(piece.knobColor);
     }
 }
 
