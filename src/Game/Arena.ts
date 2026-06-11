@@ -124,6 +124,23 @@ export class Arena {
         const halfW = Arena.FIELD_W / 2;
         const halfL = Arena.FIELD_L / 2;
 
+        // Chanfros de 45° nos quatro cantos: eliminam as "zonas mortas" onde a
+        // bola ficaria presa no ângulo reto, devolvendo-a ao campo.
+        const CHAMFER = 0.9; // recuo do chanfro ao longo de cada parede
+        [-1, 1].forEach(sx => {
+            [-1, 1].forEach(sz => {
+                const wall = MeshBuilder.CreateBox(`chamfer_${sx}_${sz}`, {
+                    width: CHAMFER * Math.SQRT2, height: Arena.WALL_H, depth: T,
+                }, scene);
+                wall.position.set(sx * (halfW - CHAMFER / 2), Arena.WALL_H / 2, sz * (halfL - CHAMFER / 2));
+                wall.rotation.y = sx * sz * Math.PI / 4;
+                wall.isVisible = false;
+                wall.isPickable = false;
+                new PhysicsAggregate(wall, PhysicsShapeType.BOX,
+                    { mass: 0, friction: 0.1, restitution: 0.55 }, scene);
+            });
+        });
+
         // Laterais (cobrem também a profundidade dos gols)
         const sideLen = Arena.FIELD_L + 2 * Arena.GOAL_DEPTH + 2 * T;
         mkWall("wallLeft", T, sideLen, -(halfW + T / 2), 0);
