@@ -36,6 +36,12 @@ export interface Piece {
     team: Team;
     /** Posição inicial (formação), usada em resets e no filtro de segurança. */
     home: Vector3;
+    /** Materiais do corpo/botão (para o feedback de "recuperando"). */
+    baseMat: StandardMaterial;
+    knobMat: StandardMaterial;
+    /** Cores originais, restauradas ao fim da recuperação. */
+    baseColor: Color3;
+    knobColor: Color3;
 }
 
 export interface Ball {
@@ -139,7 +145,11 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     // Permite teleporte por manipulação direta do mesh (resets e filtro de segurança)
     aggregate.body.disablePreStep = false;
 
-    const piece: Piece = { mesh: base, aggregate, spec, team, home: home.clone() };
+    const piece: Piece = {
+        mesh: base, aggregate, spec, team, home: home.clone(),
+        baseMat, knobMat,
+        baseColor: colors.base.clone(), knobColor: colors.knob.clone(),
+    };
 
     // Metadata para picking do slingshot (inclui filhos decorativos)
     base.metadata = { piece };
@@ -147,6 +157,21 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     label.metadata = { piece };
 
     return piece;
+}
+
+/**
+ * Feedback visual da regra de toque consecutivo: a peça "em recuperação"
+ * fica acinzentada até que outra peça do time seja lançada.
+ */
+export function setPieceRecovering(piece: Piece, recovering: boolean): void {
+    if (recovering) {
+        const gray = new Color3(0.42, 0.42, 0.46);
+        Color3.LerpToRef(piece.baseColor, gray, 0.75, piece.baseMat.diffuseColor);
+        Color3.LerpToRef(piece.knobColor, gray, 0.75, piece.knobMat.diffuseColor);
+    } else {
+        piece.baseMat.diffuseColor.copyFrom(piece.baseColor);
+        piece.knobMat.diffuseColor.copyFrom(piece.knobColor);
+    }
 }
 
 export function createBall(scene: Scene, home: Vector3): Ball {

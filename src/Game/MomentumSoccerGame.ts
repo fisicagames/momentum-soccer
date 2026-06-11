@@ -23,7 +23,7 @@ import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 
 import { Arena } from "./Arena";
-import { Piece, Ball, createPiece, createBall, ArchetypeId } from "./PieceFactory";
+import { Piece, Ball, createPiece, createBall, setPieceRecovering, ARCHETYPES, ArchetypeId } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "GAMEOVER";
@@ -41,6 +41,7 @@ export class MomentumSoccerGame {
     private static readonly MAX_DRAG = 2.2;    // m de recuo para o impulso máximo
     private static readonly WIN_GOALS = 3;
     private static readonly SETTLE_SPEED = 0.14;
+    private static readonly ROLLING_TIMEOUT = 10; // s
 
     private scene: Scene;
     private plugin!: HavokPlugin;
@@ -52,6 +53,11 @@ export class MomentumSoccerGame {
     private playerScore = 0;
     private cpuScore = 0;
     private hasShotOnce = false;
+
+    // Regra de toque consecutivo: a última peça lançada fica "em recuperação"
+    private lastPlayerPiece: Piece | null = null;
+    private lastCpuPiece: Piece | null = null;
+    private blockedFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Entidades
     private playerPieces: Piece[] = [];
@@ -229,6 +235,22 @@ export class MomentumSoccerGame {
             this.teleport(p.mesh, p.home, p.aggregate);
         }
         this.teleport(this.ball.mesh, this.ball.home, this.ball.aggregate);
+        // Tiro de meta / kickoff: a regra de toque consecutivo é zerada
+        this.setLastPlayerPiece(null);
+        this.lastCpuPiece = null;
+    }
+
+    /** Atualiza a peça em recuperação do jogador e seu feedback visual. */
+    private setLastPlayerPiece(piece: Piece | null): void {
+        if (this.lastPlayerPiece) setPieceRecovering(this.lastPlayerPiece, false);
+        this.lastPlayerPiece = piece;
+        if (piece) setPieceRecovering(piece, true);
+    }
+
+    /** Regra de toque consecutivo (com exceção se só houver uma peça). */
+    private canSelectPiece(piece: Piece): boolean {
+        if (this.playerPieces.length <= 1) return true;
+        return piece !== this.lastPlayerPiece;
     }
 
     private teleport(mesh: Mesh, to: Vector3, aggregate: { body: { setLinearVelocity(v: Vector3): void; setAngularVelocity(v: Vector3): void } }): void {
@@ -247,6 +269,8 @@ export class MomentumSoccerGame {
             maxDrag: MomentumSoccerGame.MAX_DRAG,
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
+            canSelectPiece: (piece) => this.canSelectPiece(piece),
+            onBlockedTap: () => this.flashBlockedMessage(),
             onAimUpdate: (aim) => {
                 this.hintTxt.isVisible = false;
                 this.updateAimPanel(aim);
@@ -265,8 +289,20 @@ export class MomentumSoccerGame {
         aim.piece.aggregate.body.applyImpulse(this._tmp, aim.piece.mesh.getAbsolutePosition());
         this.hasShotOnce = true;
         this.hintTxt.isVisible = false;
+        this.setLastPlayerPiece(aim.piece);
         this.enterState("ROLLING");
         this.nextTurn = "cpu";
+    }
+
+    /** Aviso rápido quando o jogador toca a peça em recuperação. */
+    private flashBlockedMessage(): void {
+        this.turnTxt.text = this.t("⏳ Peça em recuperação — use outra!", "⏳ Piece recovering — use another!");
+        this.turnTxt.color = "#FFC34D";
+        if (this.blockedFlashTimer) clearTimeout(this.blockedFlashTimer);
+        this.blockedFlashTimer = setTimeout(() => {
+            this.blockedFlashTimer = null;
+            this.updateTurnText();
+        }, 1400);
     }
 
     // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
@@ -482,7 +518,7 @@ export class MomentumSoccerGame {
                 case "ROLLING": {
                     const goal = this.detectGoal();
                     if (goal) { this.onGoal(goal); break; }
-                    if (this.stateTime > 0.7 && (this.maxBodySpeed() < MomentumSoccerGame.SETTLE_SPEED || this.stateTime > 10)) {
+                    if (this.stateTime > 0.7 && (this.maxBodySpeed() < MomentumSoccerGame.SETTLE_SPEED || this.stateTime > MomentumSoccerGame.ROLLING_TIMEOUT)) {
                         this.enterState(this.nextTurn === "player" ? "PLAYER_AIM" : "CPU_TURN");
                     }
                     break;
@@ -798,6 +834,7 @@ export class MomentumSoccerGame {
     }
 
     public dispose(): void {
+        if (this.blockedFlashTimer) clearTimeout(this.blockedFlashTimer);
         this.scene.onBeforeRenderObservable.remove(this.gameLoopObserver);
         this.slingshot.dispose();
 
