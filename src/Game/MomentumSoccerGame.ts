@@ -356,6 +356,12 @@ export class MomentumSoccerGame {
         const gap = this.ball.radius + piece.spec.radius + piece.spec.radius; // folga = raio do botão
         const sign = team === "player" ? 1 : -1;
         this.teleport(piece.mesh, this._tmp.set(0, piece.home.y, sign * gap), piece.aggregate);
+
+        // Centroavante adversário recua para fora do círculo central
+        // (raio 1.8): só o executor da saída fica dentro do círculo.
+        const defender = team === "player" ? this.cpuKickoffPiece : this.playerKickoffPiece;
+        this.teleport(defender.mesh, this._tmp.set(0, defender.home.y, sign * 2.2), defender.aggregate);
+
         this.kickoffActive = true;
         this.changePossessionTo(team);
     }
