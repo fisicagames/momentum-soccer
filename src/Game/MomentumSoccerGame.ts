@@ -42,22 +42,40 @@ export class MomentumSoccerGame {
     private static readonly WIN_GOALS = 3;
     private static readonly SETTLE_SPEED = 0.18;
     private static readonly ROLLING_TIMEOUT = 8; // s
-    private static readonly TOUCHES_PER_TURN = 3;
+    /** Regra brasileira: limite de toques coletivos por posse de bola. */
+    private static readonly TEAM_TOUCHES = 12;
+    /** Limite de lances consecutivos com o mesmo botão (o 4º é infração). */
+    private static readonly MAX_PIECE_STREAK = 3;
 
     private scene: Scene;
     private plugin!: HavokPlugin;
 
     // Estado da partida
     private gameState: GameState = "PLAYER_AIM";
-    private nextTurn: Turn = "cpu";
+    private possession: Turn = "player";
     private stateTime = 0;
     private playerScore = 0;
     private cpuScore = 0;
     private hasShotOnce = false;
 
-    // Regra de 3 toques: cada time lança 3 vezes (qualquer botão, podendo
-    // repetir) antes de a vez passar para o adversário
-    private touchesLeft = MomentumSoccerGame.TOUCHES_PER_TURN;
+    // ── Regra de 12 toques ───────────────────────────────────────────────
+    // Toques coletivos restantes do time com a posse
+    private teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
+    // Sequência de lances consecutivos com o mesmo botão
+    private streakPiece: Piece | null = null;
+    private streakCount = 0;
+    // Rastreamento físico do lance em andamento (classificado ao assentar)
+    private currentShot: {
+        piece: Piece;
+        team: Turn;
+        ballTouched: boolean;
+        foul: boolean;             // tocou adversário ANTES da bola
+        oppContactAfterBall: boolean; // deslocou adversário DEPOIS da bola
+        fourthTouch: boolean;      // 4º lance consecutivo com o mesmo botão
+        changedButton: boolean;    // trocou de botão em relação ao lance anterior
+    } | null = null;
+    // Reposição sancionada dos goleiros (alvo em X por goleiro)
+    private gkRepositionTargets = new Map<Goalkeeper, number>();
 
     // Entidades
     private playerPieces: Piece[] = [];
@@ -87,6 +105,8 @@ export class MomentumSoccerGame {
     private scoreTxt!: TextBlock;
     private turnTxt!: TextBlock;
     private goalTxt!: TextBlock;
+    private alertTxt!: TextBlock;
+    private alertTimer: ReturnType<typeof setTimeout> | null = null;
     private hintTxt!: TextBlock;
     private aimPanel!: Rectangle;
     private aimTxt!: TextBlock;
@@ -244,21 +264,44 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * Goleiros cinemáticos: deslizam lateralmente acompanhando a bola, com
-     * velocidade limitada (chutes rápidos nos cantos conseguem vencê-los),
-     * sempre paralelos à linha de gol.
+     * Sistema de congelamento do goleiro: ele fica 100% imóvel e rígido —
+     * só desliza quando recebe uma reposição sancionada (mudança de posse ou
+     * 3º toque consecutivo do mesmo botão atacante), e nunca durante o
+     * movimento físico das peças (ROLLING).
      */
     private updateGoalkeepers(dt: number): void {
-        const GK_SPEED = 1.1; // m/s
-        const range = Arena.GOAL_W / 2 - 0.35;
+        if (this.gameState === "ROLLING") return; // rígido com a bola em jogo
+        const GK_SPEED = 1.4; // m/s
         for (const gk of [this.playerGK, this.cpuGK]) {
-            const targetX = Math.max(-range, Math.min(range, this.ball.mesh.position.x));
+            const targetX = this.gkRepositionTargets.get(gk);
+            if (targetX === undefined) continue;
             const delta = targetX - gk.mesh.position.x;
+            if (Math.abs(delta) < 0.02) {
+                this.gkRepositionTargets.delete(gk);
+                continue;
+            }
             const step = Math.max(-GK_SPEED * dt, Math.min(GK_SPEED * dt, delta));
             gk.mesh.position.x += step;
             gk.mesh.position.y = gk.home.y;
             gk.mesh.position.z = gk.home.z;
         }
+    }
+
+    /**
+     * Concede ao goleiro uma reposição tática: alinhar-se com a reta
+     * Bola → Centro do próprio gol (interceptada na linha do goleiro).
+     */
+    private grantGKReposition(gk: Goalkeeper): void {
+        const ballPos = this.ball.mesh.position;
+        const goalZ = Math.sign(gk.home.z) * Arena.GOAL_LINE_Z;
+        let x = 0;
+        const denom = goalZ - ballPos.z;
+        if (Math.abs(denom) > 0.05) {
+            const t = (gk.home.z - ballPos.z) / denom;
+            x = ballPos.x * (1 - t);
+        }
+        const range = Arena.GOAL_W / 2 - 0.35;
+        this.gkRepositionTargets.set(gk, Math.max(-range, Math.min(range, x)));
     }
 
     private allBodies(): { mesh: Mesh; piece?: Piece }[] {
@@ -277,23 +320,109 @@ export class MomentumSoccerGame {
         this.playerGK.mesh.position.copyFrom(this.playerGK.home);
         this.cpuGK.mesh.position.copyFrom(this.cpuGK.home);
         this.teleport(this.ball.mesh, this.ball.home, this.ball.aggregate);
-        // Kickoff: o time da vez recomeça com os 3 toques completos
-        this.touchesLeft = MomentumSoccerGame.TOUCHES_PER_TURN;
+        this.gkRepositionTargets.clear();
         this.pendingGoal = null;
+        this.currentShot = null;
+    }
+
+    /** Entra no estado de mira do time com a posse. */
+    private enterTurnState(): void {
+        this.enterState(this.possession === "player" ? "PLAYER_AIM" : "CPU_TURN");
     }
 
     /**
-     * Consome um toque do time da vez. Restando toques, o mesmo time continua;
-     * senão, a vez passa ao adversário com os 3 toques renovados.
+     * Mudança de posse: o novo time recebe 12 toques coletivos, os contadores
+     * individuais zeram e o goleiro do time que passou a defender ganha uma
+     * reposição tática na reta Bola → Centro do gol.
      */
-    private consumeTouch(team: Turn): void {
-        this.touchesLeft--;
-        if (this.touchesLeft > 0) {
-            this.nextTurn = team;
-        } else {
-            this.nextTurn = team === "player" ? "cpu" : "player";
-            this.touchesLeft = MomentumSoccerGame.TOUCHES_PER_TURN;
+    private changePossessionTo(team: Turn): void {
+        this.possession = team;
+        this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
+        this.streakPiece = null;
+        this.streakCount = 0;
+        this.grantGKReposition(team === "player" ? this.cpuGK : this.playerGK);
+        this.enterTurnState();
+    }
+
+    /**
+     * Classifica o lance após todos os corpos pararem (máquina de estados da
+     * regra de 12 toques) e decide se a posse continua ou muda.
+     */
+    private resolveShot(): void {
+        const shot = this.currentShot;
+        this.currentShot = null;
+        if (!shot) {
+            this.enterTurnState();
+            return;
         }
+        const opponent: Turn = shot.team === "player" ? "cpu" : "player";
+
+        // Infração: tocou peça/goleiro adversário sem ter tocado a bola antes
+        if (shot.foul) {
+            this.showAlert(this.t("🚫 Colisão ilegal (falta)! Posse perdida.", "🚫 Illegal contact (foul)! Possession lost."), "#FF6655");
+            this.changePossessionTo(opponent);
+            return;
+        }
+        // Infração: 4º lance consecutivo com o mesmo botão
+        if (shot.fourthTouch) {
+            this.showAlert(this.t("🚫 Quarto toque consecutivo! Posse perdida.", "🚫 Fourth consecutive touch! Possession lost."), "#FF6655");
+            this.changePossessionTo(opponent);
+            return;
+        }
+
+        // Lance legal: consome 1 toque coletivo
+        this.teamTouchesLeft--;
+
+        let alert: [string, string] | null = null;
+        let alertColor = "#FFC34D";
+
+        // Passe para botão diferente: goleiro defensor permanece congelado
+        if (shot.changedButton && shot.ballTouched) {
+            alert = ["🥶 Goleiro congelado! Gol desprotegido!", "🥶 Goalkeeper frozen! Unguarded goal!"];
+            alertColor = "#7FDFFF";
+        }
+        // Bola antes, adversário depois: legal, mas restam no máximo 3 toques
+        if (shot.oppContactAfterBall) {
+            this.teamTouchesLeft = Math.min(this.teamTouchesLeft, 3);
+            alert = ["⚠️ Colisão com adversário! Turno reduzido para mais 3 toques!", "⚠️ Contact with opponent! Turn reduced to 3 more touches!"];
+            alertColor = "#FFC34D";
+        }
+
+        // 3º toque consecutivo do mesmo botão: goleiro defensor pode se reposicionar
+        if (this.streakCount === MomentumSoccerGame.MAX_PIECE_STREAK) {
+            this.grantGKReposition(shot.team === "player" ? this.cpuGK : this.playerGK);
+        }
+
+        // 12º toque sem gol: posse esgotada
+        if (this.teamTouchesLeft <= 0) {
+            this.showAlert(this.t("⏱ Turno esgotado! Posse perdida.", "⏱ Touches exhausted! Possession lost."), "#FF6655");
+            this.changePossessionTo(opponent);
+            return;
+        }
+
+        if (alert) this.showAlert(this.t(alert[0], alert[1]), alertColor);
+        this.enterTurnState();
+    }
+
+    /** Registra o disparo para a regra de 12 toques (streak + rastreamento). */
+    private trackShot(piece: Piece, team: Turn): void {
+        const fourthTouch = piece === this.streakPiece && this.streakCount >= MomentumSoccerGame.MAX_PIECE_STREAK;
+        const changedButton = this.streakPiece !== null && piece !== this.streakPiece;
+        if (piece === this.streakPiece) {
+            this.streakCount++;
+        } else {
+            // Botão diferente: zera os contadores individuais das outras peças
+            this.streakPiece = piece;
+            this.streakCount = 1;
+        }
+        this.currentShot = {
+            piece, team,
+            ballTouched: false,
+            foul: false,
+            oppContactAfterBall: false,
+            fourthTouch,
+            changedButton,
+        };
     }
 
     private teleport(mesh: Mesh, to: Vector3, aggregate: { body: { setLinearVelocity(v: Vector3): void; setAngularVelocity(v: Vector3): void } }): void {
@@ -330,65 +459,106 @@ export class MomentumSoccerGame {
         aim.piece.aggregate.body.applyImpulse(this._tmp, aim.piece.mesh.getAbsolutePosition());
         this.hasShotOnce = true;
         this.hintTxt.isVisible = false;
-        this.consumeTouch("player");
+        this.trackShot(aim.piece, "player");
         this.enterState("ROLLING");
     }
 
     // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
 
     /**
-     * Linha de visão: o corredor entre a peça e o ponto de contato está livre?
-     * Verifica a distância de cada outra peça (e goleiros) ao segmento de tiro.
+     * Corredor livre? Verifica a distância de cada peça e goleiro (exceto os
+     * excluídos) ao segmento no plano XZ, contra o raio do corpo em movimento.
      */
-    private isPathBlocked(shooter: Piece, from: Vector3, to: Vector3): boolean {
+    private isCorridorBlocked(from: Vector3, to: Vector3, movingRadius: number, exclude: Mesh[]): boolean {
         const segX = to.x - from.x, segZ = to.z - from.z;
         const segLen2 = segX * segX + segZ * segZ;
         if (segLen2 < 1e-6) return false;
 
         const blockers: { x: number; z: number; radius: number }[] = [];
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
-            if (p === shooter) continue;
+            if (exclude.includes(p.mesh)) continue;
             blockers.push({ x: p.mesh.position.x, z: p.mesh.position.z, radius: p.spec.radius });
         }
         for (const gk of [this.playerGK, this.cpuGK]) {
+            if (exclude.includes(gk.mesh)) continue;
             blockers.push({ x: gk.mesh.position.x, z: gk.mesh.position.z, radius: gk.halfWidth * 0.7 });
         }
 
         for (const blk of blockers) {
-            // Projeção do centro do bloqueador no segmento de tiro (plano XZ)
+            // Projeção do centro do bloqueador no segmento (plano XZ)
             const t = Math.max(0, Math.min(1, ((blk.x - from.x) * segX + (blk.z - from.z) * segZ) / segLen2));
             const dx = blk.x - (from.x + segX * t);
             const dz = blk.z - (from.z + segZ * t);
-            const clearance = shooter.spec.radius + blk.radius + 0.04;
+            const clearance = movingRadius + blk.radius + 0.04;
             if (dx * dx + dz * dz < clearance * clearance) return true;
         }
         return false;
     }
 
+    /** Linha de visão da peça atiradora até o ponto de contato. */
+    private isPathBlocked(shooter: Piece, from: Vector3, to: Vector3): boolean {
+        return this.isCorridorBlocked(from, to, shooter.spec.radius, [shooter.mesh, this.ball.mesh]);
+    }
+
     /**
-     * Seleção da peça da CPU entre os 10 botões de linha, por média ponderada:
-     *  - Proximidade (peso 0.6): peças perto da bola ganham forte preferência;
-     *  - Alinhamento (peso 0.4): ângulo Peça → Bola → Gol adversário;
-     *  - Linha de visão: tiros com o corredor bloqueado por outra peça são
-     *    fortemente penalizados (só saem se não houver opção limpa).
-     * A CPU também respeita a regra de toque consecutivo.
+     * CPU estratégica dentro da regra de 12 toques:
+     *  - Caminho da bola ao gol LIVRE (ou último toque coletivo): chute direto
+     *    com força máxima;
+     *  - Caminho BLOQUEADO com toques sobrando: passe suave para o companheiro
+     *    mais bem posicionado, preferindo trocar de botão para manter o
+     *    goleiro adversário congelado;
+     *  - Nunca seleciona o botão que já fez 3 toques consecutivos (evita a
+     *    infração do 4º toque).
      */
     private cpuShoot(): void {
         const ballPos = this.ball.mesh.position;
-        const goal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3); // gol do jogador
+        const playerGoal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
 
-        const desired = goal.subtract(ballPos);
+        // Evita o 4º toque consecutivo
+        const candidates = this.cpuPieces.filter(
+            p => !(p === this.streakPiece && this.streakCount >= MomentumSoccerGame.MAX_PIECE_STREAK)
+        );
+        if (candidates.length === 0) return;
+
+        // O caminho da bola até o gol está livre (considerando o goleiro congelado)?
+        const goalPathClear = !this.isCorridorBlocked(ballPos, playerGoal, this.ball.radius, [this.ball.mesh]);
+        let shootAtGoal = goalPathClear || this.teamTouchesLeft <= 1;
+
+        // Alvo da bola: o gol (chute) ou o companheiro mais bem posicionado (passe)
+        let target = playerGoal.clone();
+        if (!shootAtGoal) {
+            let bestMate: Piece | null = null;
+            let bestMateScore = -Infinity;
+            for (const mate of this.cpuPieces) {
+                const matePos = mate.mesh.position;
+                const dist = Vector3.Distance(matePos, ballPos);
+                if (dist < 0.9) continue; // já está colado na bola
+                const blocked = this.isCorridorBlocked(ballPos, matePos, this.ball.radius, [this.ball.mesh, mate.mesh]);
+                const advance = ballPos.z - matePos.z; // companheiro mais avançado rumo ao gol do jogador
+                const score = (blocked ? 0 : 1.5) + advance * 0.10 - dist * 0.06;
+                if (score > bestMateScore) {
+                    bestMateScore = score;
+                    bestMate = mate;
+                }
+            }
+            if (bestMate) target = bestMate.mesh.position.clone();
+            else shootAtGoal = true; // sem opção de passe: tenta o chute
+        }
+
+        const desired = target.subtract(ballPos);
         desired.y = 0;
         desired.normalize();
 
         const W_PROXIMITY = 0.6;
         const W_ALIGNMENT = 0.4;
         const BLOCKED_PENALTY = 0.25;
+        // Preferência por trocar de botão: mantém o goleiro adversário congelado
+        const CHANGE_BUTTON_BONUS = 0.12;
 
         let best: { piece: Piece; dir: Vector3; dist: number; align: number; score: number } | null = null;
 
-        for (const piece of this.cpuPieces) {
-            // Ponto de contato atrás da bola (na direção oposta ao gol-alvo)
+        for (const piece of candidates) {
+            // Ponto de contato atrás da bola (na direção oposta ao alvo)
             const contact = ballPos.subtract(desired.scale(this.ball.radius + piece.spec.radius));
             const dir = contact.subtract(piece.mesh.position);
             dir.y = 0;
@@ -396,35 +566,45 @@ export class MomentumSoccerGame {
             if (dist < 0.05) continue;
             dir.normalize();
 
-            // Proximidade: decaimento exponencial — perto de 1 quando a peça está colada na bola
             const proximity = Math.exp(-dist / 3);
-            // Alinhamento: 1 quando a peça está exatamente atrás da bola em relação ao gol
             const align = Vector3.Dot(dir, desired);
-            const alignment = (align + 1) / 2; // normaliza [-1,1] → [0,1]
+            const alignment = (align + 1) / 2;
 
             let score = W_PROXIMITY * proximity + W_ALIGNMENT * alignment;
             if (this.isPathBlocked(piece, piece.mesh.position, contact)) {
-                score *= BLOCKED_PENALTY;
+                score *= BLOCKED_PENALTY; // colisão antes da bola seria falta
             }
+            if (piece !== this.streakPiece) score += CHANGE_BUTTON_BONUS;
             if (!best || score > best.score) {
                 best = { piece, dir, dist, align, score };
             }
         }
         if (!best) return;
 
-        // Velocidade desejada cresce com a distância; erro humano simulado
-        const speed = Math.min(1.8 + best.dist * 0.8, 5.5) * (0.88 + Math.random() * 0.24);
-        const noise = (Math.random() - 0.5) * 0.16 * (1.2 - Math.max(best.align, 0));
+        let impulse: number;
+        if (shootAtGoal) {
+            // Chute direto ao gol com força máxima
+            impulse = MomentumSoccerGame.MAX_IMPULSE;
+        } else {
+            // Passe suave: a bola deve chegar ao companheiro, não atravessar o campo
+            const travel = Vector3.Distance(ballPos, target);
+            const vBall = Math.min(1.2 + travel * 0.55, 3.2);
+            const m = best.piece.spec.mass;
+            // Transferência aproximada de momento no impacto + perda na aproximação
+            const vPiece = vBall * (m + this.ball.mass) / (2 * m) + best.dist * 0.25;
+            impulse = Math.min(m * Math.max(vPiece, 0.8), MomentumSoccerGame.MAX_IMPULSE);
+        }
+
+        // Erro humano simulado (menor em chutes bem alinhados)
+        const noise = (Math.random() - 0.5) * 0.14 * (1.2 - Math.max(best.align, 0));
         const cos = Math.cos(noise), sin = Math.sin(noise);
         const dx = best.dir.x * cos - best.dir.z * sin;
         const dz = best.dir.x * sin + best.dir.z * cos;
 
-        // A CPU obedece ao mesmo limite de impulso do jogador (J = m·v ≤ J_max)
-        const impulse = Math.min(best.piece.spec.mass * speed, MomentumSoccerGame.MAX_IMPULSE);
         this._tmp.set(dx * impulse, 0, dz * impulse);
         best.piece.aggregate.body.applyImpulse(this._tmp, best.piece.mesh.getAbsolutePosition());
 
-        this.consumeTouch("cpu");
+        this.trackShot(best.piece, "cpu");
         this.enterState("ROLLING");
     }
 
@@ -494,6 +674,12 @@ export class MomentumSoccerGame {
 
         const handler = (ev: IPhysicsCollisionEvent) => {
             if (ev.type !== PhysicsEventType.COLLISION_STARTED) return;
+
+            // Regra de 12 toques: registra os contatos do botão disparado
+            if (this.currentShot && this.gameState === "ROLLING") {
+                this.trackShotCollision(ev);
+            }
+
             const a = ev.collider.transformNode?.name ?? "";
             const b = ev.collidedAgainst.transformNode?.name ?? "";
             // Só peças e bola entre si (ignora muros, chão e traves)
@@ -517,6 +703,33 @@ export class MomentumSoccerGame {
         }
         this.ball.aggregate.body.setCollisionCallbackEnabled(true);
         this.ball.aggregate.body.getCollisionObservable().add(handler);
+    }
+
+    /**
+     * Atualiza o lance em andamento com os contatos do botão disparado:
+     * bola (legaliza o lance) e adversários (falta se antes da bola,
+     * penalidade de 3 toques se depois).
+     */
+    private trackShotCollision(ev: IPhysicsCollisionEvent): void {
+        const shot = this.currentShot!;
+        const shooterMesh = shot.piece.mesh;
+        const nodeA = ev.collider.transformNode;
+        const nodeB = ev.collidedAgainst.transformNode;
+        const other = nodeA === shooterMesh ? nodeB : nodeB === shooterMesh ? nodeA : null;
+        if (!other) return;
+
+        if (other === this.ball.mesh) {
+            shot.ballTouched = true;
+            return;
+        }
+
+        const otherPiece = (other as Mesh).metadata?.piece as Piece | undefined;
+        const oppTeam: Turn = shot.team === "player" ? "cpu" : "player";
+        const oppGK = oppTeam === "player" ? this.playerGK : this.cpuGK;
+        if ((otherPiece && otherPiece.team === oppTeam) || other === oppGK.mesh) {
+            if (shot.ballTouched) shot.oppContactAfterBall = true;
+            else shot.foul = true;
+        }
     }
 
     /** Faíscas, onda de choque, texto "Δp" e som, todos proporcionais ao impulso. */
@@ -599,8 +812,9 @@ export class MomentumSoccerGame {
                     const goal = this.detectGoal();
                     if (goal) { this.onGoal(goal); break; }
                     if (this.stateTime > 0.7 && (this.maxBodySpeed() < MomentumSoccerGame.SETTLE_SPEED || this.stateTime > MomentumSoccerGame.ROLLING_TIMEOUT)) {
-                        this.checkGoalKick(); // bola morta atrás da linha → tiro de meta
-                        this.enterState(this.nextTurn === "player" ? "PLAYER_AIM" : "CPU_TURN");
+                        // Bola morta atrás da linha → tiro de meta; senão,
+                        // classifica o lance pela regra de 12 toques
+                        if (!this.checkGoalKick()) this.resolveShot();
                     }
                     break;
                 }
@@ -680,8 +894,9 @@ export class MomentumSoccerGame {
         if (Math.abs(z) <= Arena.GOAL_LINE_Z - 0.1) return false;
         const side = Math.sign(z);
         this.teleport(this.ball.mesh, this._tmp.set(0, 0.31, side * (Arena.GOAL_LINE_Z - 2.2)), this.ball.aggregate);
-        this.nextTurn = side > 0 ? "cpu" : "player"; // a defesa repõe a bola
-        this.touchesLeft = MomentumSoccerGame.TOUCHES_PER_TURN;
+        this.currentShot = null;
+        this.showAlert(this.t("⚽ Tiro de meta", "⚽ Goal kick"), "#CCCCCC");
+        this.changePossessionTo(side > 0 ? "cpu" : "player"); // a defesa repõe a bola
         return true;
     }
 
@@ -699,7 +914,7 @@ export class MomentumSoccerGame {
         this.goalTxt.color = scorer === "player" ? "#FFD700" : "#FF7766";
         this.goalTxt.isVisible = true;
 
-        this.nextTurn = scorer === "player" ? "cpu" : "player"; // quem sofre o gol recomeça
+        this.currentShot = null;
         this.enterState("GOAL_PAUSE");
 
         setTimeout(() => {
@@ -709,7 +924,8 @@ export class MomentumSoccerGame {
                 this.endMatch();
             } else {
                 this.resetFormation();
-                this.enterState(this.nextTurn === "player" ? "PLAYER_AIM" : "CPU_TURN");
+                // Quem sofre o gol recomeça, com posse e contadores renovados
+                this.changePossessionTo(scorer === "player" ? "cpu" : "player");
             }
         }, 2400);
     }
@@ -735,7 +951,7 @@ export class MomentumSoccerGame {
         this.gameOverPanel.isVisible = false;
         this.resetFormation();
         this.onGameResumeCallback?.();
-        this.enterState("PLAYER_AIM");
+        this.changePossessionTo("player");
     }
 
     private saveRecord(playerWon: boolean): void {
@@ -816,6 +1032,19 @@ export class MomentumSoccerGame {
         this.goalTxt.isVisible = false;
         this.ui.addControl(this.goalTxt);
 
+        // Alertas da regra de 12 toques (faltas, turno esgotado, goleiro congelado)
+        this.alertTxt = new TextBlock("alert", "");
+        this.alertTxt.fontSize = 14;
+        this.alertTxt.fontWeight = "bold";
+        this.alertTxt.color = "#FFC34D";
+        this.alertTxt.shadowColor = "rgba(0,0,0,0.9)";
+        this.alertTxt.shadowBlur = 5;
+        this.alertTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.alertTxt.top = "62px";
+        this.alertTxt.height = "30px";
+        this.alertTxt.isVisible = false;
+        this.ui.addControl(this.alertTxt);
+
         // Dica inicial
         this.hintTxt = new TextBlock("hint", "");
         this.hintTxt.color = "#FFFFFF";
@@ -880,8 +1109,13 @@ export class MomentumSoccerGame {
 
     private updateAimPanel(aim: AimState): void {
         const name = this.currentLang === 0 ? aim.piece.spec.namePt : aim.piece.spec.nameEn;
+        // Contador individual: lances consecutivos já dados com esta peça
+        const streak = aim.piece === this.streakPiece ? this.streakCount : 0;
+        const streakLine = streak >= MomentumSoccerGame.MAX_PIECE_STREAK
+            ? this.t("⚠ 4º toque = perde a posse!", "⚠ 4th touch = lose possession!")
+            : this.t(`Toques da peça: ${streak}/3`, `Piece touches: ${streak}/3`);
         this.aimTxt.text =
-            `${name}\n` +
+            `${name}  (${streakLine})\n` +
             `m = ${this.fmt(aim.piece.spec.mass, 1)} kg\n` +
             `v = ${this.fmt(aim.velocity, 1)} m/s\n` +
             `p = m·v = ${this.fmt(aim.impulse, 1)} kg·m/s`;
@@ -892,6 +1126,18 @@ export class MomentumSoccerGame {
         }
     }
 
+    /** Aviso rápido central (faltas, turno esgotado, goleiro congelado). */
+    private showAlert(text: string, color: string): void {
+        this.alertTxt.text = text;
+        this.alertTxt.color = color;
+        this.alertTxt.isVisible = true;
+        if (this.alertTimer) clearTimeout(this.alertTimer);
+        this.alertTimer = setTimeout(() => {
+            this.alertTimer = null;
+            this.alertTxt.isVisible = false;
+        }, 2600);
+    }
+
     private updateScoreText(): void {
         this.scoreTxt.text = this.t(
             `VOCÊ  ${this.playerScore}  ×  ${this.cpuScore}  CPU`,
@@ -900,19 +1146,19 @@ export class MomentumSoccerGame {
     }
 
     private updateTurnText(): void {
-        const touches = `${this.touchesLeft}/${MomentumSoccerGame.TOUCHES_PER_TURN}`;
+        const touches = `${this.teamTouchesLeft}/${MomentumSoccerGame.TEAM_TOUCHES}`;
         switch (this.gameState) {
             case "PLAYER_AIM":
                 this.turnTxt.text = this.t(
-                    `👆 Sua vez — toques: ${touches}`,
-                    `👆 Your turn — touches: ${touches}`
+                    `👆 Sua posse — Toques: ${touches}`,
+                    `👆 Your possession — Touches: ${touches}`
                 );
                 this.turnTxt.color = "#9FD4FF";
                 break;
             case "CPU_TURN":
                 this.turnTxt.text = this.t(
-                    `📺 Vez do adversário — toques: ${touches}`,
-                    `📺 Opponent's turn — touches: ${touches}`
+                    `📺 Posse do adversário — Toques: ${touches}`,
+                    `📺 Opponent's possession — Touches: ${touches}`
                 );
                 this.turnTxt.color = "#FFAA99";
                 break;
@@ -958,6 +1204,7 @@ export class MomentumSoccerGame {
     }
 
     public dispose(): void {
+        if (this.alertTimer) clearTimeout(this.alertTimer);
         this.scene.onBeforeRenderObservable.remove(this.gameLoopObserver);
         this.plugin.onTriggerCollisionObservable.remove(this.triggerObserver);
         this.slingshot.dispose();
