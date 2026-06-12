@@ -50,6 +50,10 @@ export class MomentumSoccerGame {
     private static readonly ENERGY_EXHAUSTED = 1.0;
     /** Limiar do aviso "⚠ Energia Baixa!" no painel (J). */
     private static readonly ENERGY_LOW = 25;
+    /** Escala fixa absoluta da barra gráfica de energia (J). */
+    private static readonly ENERGY_BAR_MAX = 200;
+    /** Largura útil da barra de energia no painel (px de GUI). */
+    private static readonly ENERGY_BAR_W = 172;
 
     private scene: Scene;
     private plugin!: HavokPlugin;
@@ -118,6 +122,8 @@ export class MomentumSoccerGame {
     private aimPanel!: Rectangle;
     private aimTxt!: TextBlock;
     private aimEnergyTxt!: TextBlock;
+    private energyBarFill!: Rectangle;
+    private energyBarSpend!: Rectangle;
     private gameOverPanel!: Rectangle;
     private gameOverTitle!: TextBlock;
     private gameOverPhrase!: TextBlock;
@@ -1049,7 +1055,7 @@ export class MomentumSoccerGame {
         // afastado do botão Home (canto inferior direito).
         this.aimPanel = new Rectangle("aimPanel");
         this.aimPanel.width = "196px";
-        this.aimPanel.height = "104px";
+        this.aimPanel.height = "122px";
         this.aimPanel.cornerRadius = 8;
         this.aimPanel.thickness = 1;
         this.aimPanel.color = "#FFD24A";
@@ -1061,13 +1067,42 @@ export class MomentumSoccerGame {
         this.aimPanel.isVisible = false;
         this.ui.addControl(this.aimPanel);
 
+        // Barra gráfica de energia (escala fixa 0–200 J) no topo do card:
+        // fundo translúcido = capacidade; verde = energia restante da peça;
+        // laranja = fatia que o lance atual converterá em energia cinética.
+        const barBg = new Rectangle("energyBarBg");
+        barBg.width = `${MomentumSoccerGame.ENERGY_BAR_W}px`;
+        barBg.height = "10px";
+        barBg.thickness = 0;
+        barBg.cornerRadius = 4;
+        barBg.background = "rgba(255,255,255,0.16)";
+        barBg.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        barBg.top = "8px";
+        this.aimPanel.addControl(barBg);
+
+        this.energyBarFill = new Rectangle("energyBarFill");
+        this.energyBarFill.height = "100%";
+        this.energyBarFill.thickness = 0;
+        this.energyBarFill.cornerRadius = 4;
+        this.energyBarFill.background = "#37D67A";
+        this.energyBarFill.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        barBg.addControl(this.energyBarFill);
+
+        this.energyBarSpend = new Rectangle("energyBarSpend");
+        this.energyBarSpend.height = "100%";
+        this.energyBarSpend.thickness = 0;
+        this.energyBarSpend.cornerRadius = 4;
+        this.energyBarSpend.background = "#FF8A3D";
+        this.energyBarSpend.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        barBg.addControl(this.energyBarSpend);
+
         this.aimTxt = new TextBlock("aimTxt", "");
         this.aimTxt.color = "white";
         this.aimTxt.fontSize = 11;
         this.aimTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimTxt.paddingLeft = "10px";
-        this.aimTxt.paddingTop = "7px";
+        this.aimTxt.paddingTop = "24px"; // abaixo da barra de energia
         this.aimPanel.addControl(this.aimTxt);
 
         // Tanque de energia da peça (E restante / gasto projetado / aviso)
@@ -1187,6 +1222,16 @@ export class MomentumSoccerGame {
             this.t(` | Gasto: -${this.fmt(kinetic, 1)} J`, ` | Spend: -${this.fmt(kinetic, 1)} J`) +
             (low ? this.t("\n⚠ Energia Baixa!", "\n⚠ Low Energy!") : "");
         this.aimEnergyTxt.color = low ? "#FF6655" : "#7FFFD4";
+
+        // Barra gráfica (escala absoluta 0–200 J): verde = energia que sobra
+        // após o lance; laranja = fatia convertida em K neste disparo.
+        const barW = MomentumSoccerGame.ENERGY_BAR_W;
+        const max = MomentumSoccerGame.ENERGY_BAR_MAX;
+        const remainAfter = Math.max(energyLeft - kinetic, 0);
+        const spend = Math.min(kinetic, Math.max(energyLeft, 0));
+        this.energyBarFill.width = `${(remainAfter / max) * barW}px`;
+        this.energyBarSpend.left = `${(remainAfter / max) * barW}px`;
+        this.energyBarSpend.width = `${(spend / max) * barW}px`;
 
         this.aimPanel.isVisible = true;
     }
