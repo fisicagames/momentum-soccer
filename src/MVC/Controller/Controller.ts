@@ -35,15 +35,15 @@ export class Controller {
 
     /** Exibe no menu o histórico de partidas salvo pelo jogo. */
     private updateMenuRecord(): void {
-        let wins = 0, losses = 0;
+        let wins = 0, losses = 0, draws = 0;
         try {
             const raw = localStorage.getItem("momentum_soccer_record");
-            if (raw) ({ wins = 0, losses = 0 } = JSON.parse(raw));
+            if (raw) ({ wins = 0, losses = 0, draws = 0 } = JSON.parse(raw));
         } catch { /* sem armazenamento: mostra zeros */ }
         const isPT = this.view.getCurrentLanguage() === 0;
         this.view.updateBestStats(isPT
-            ? `🏆 Vitórias: ${wins} | Derrotas: ${losses}`
-            : `🏆 Wins: ${wins} | Losses: ${losses}`);
+            ? `🏆 Vitórias: ${wins} | Empates: ${draws} | Derrotas: ${losses}`
+            : `🏆 Wins: ${wins} | Draws: ${draws} | Losses: ${losses}`);
     }
 
     // ══════════════════════════════════════════════════════════════════════

@@ -26,7 +26,7 @@ import { Arena } from "./Arena";
 import { Piece, Ball, createPiece, createBall, ARCHETYPES, ArchetypeId } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 
-type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "GAMEOVER";
+type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TIME" | "GAMEOVER";
 type Turn = "player" | "cpu";
 
 /**
@@ -42,7 +42,8 @@ export class MomentumSoccerGame {
     /** Saída de bola: momento máximo do passe inicial (recuo suave). */
     private static readonly KICKOFF_MAX_IMPULSE = 2.0;
     private static readonly MAX_DRAG = 2.2;    // m de recuo para o impulso máximo
-    private static readonly WIN_GOALS = 3;
+    /** Duração de cada tempo da partida (2 tempos de 3 minutos). */
+    private static readonly HALF_SECONDS = 180;
     private static readonly SETTLE_SPEED = 0.18;
     private static readonly ROLLING_TIMEOUT = 8; // s
     /** Regra brasileira: limite de toques coletivos por posse de bola. */
@@ -66,6 +67,12 @@ export class MomentumSoccerGame {
     private playerScore = 0;
     private cpuScore = 0;
     private hasShotOnce = false;
+
+    // Cronômetro: 2 tempos de 3 minutos (o relógio corre com a partida viva
+    // e pausa no intervalo e no fim de jogo)
+    private half: 1 | 2 = 1;
+    private timeLeft = MomentumSoccerGame.HALF_SECONDS;
+    private lastTimerSecond = -1;
 
     // ── Regra de 12 toques ───────────────────────────────────────────────
     // Toques coletivos restantes do time com a posse
@@ -115,6 +122,7 @@ export class MomentumSoccerGame {
     // GUI
     private ui!: AdvancedDynamicTexture;
     private scoreTxt!: TextBlock;
+    private timerTxt!: TextBlock;
     private turnTxt!: TextBlock;
     private goalTxt!: TextBlock;
     private alertTxt!: TextBlock;
@@ -480,6 +488,7 @@ export class MomentumSoccerGame {
     }
 
     private shoot(aim: AimState): void {
+        if (this.gameState !== "PLAYER_AIM") return; // ex.: intervalo apitou durante a mira
         this._tmp.copyFrom(aim.direction).scaleInPlace(aim.impulse);
         // Impulso aplicado no centro de massa: transferência direta de momento (J = Δp)
         aim.piece.aggregate.body.applyImpulse(this._tmp, aim.piece.mesh.getAbsolutePosition());
@@ -850,6 +859,7 @@ export class MomentumSoccerGame {
             this.stateTime += dt;
 
             this.updateCamera();
+            this.updateMatchClock(dt);
             this.updateFeedbackAnimations(dt);
             this.safetyFilter();
 
@@ -913,8 +923,8 @@ export class MomentumSoccerGame {
 
         this.triggerObserver = this.plugin.onTriggerCollisionObservable.add((ev) => {
             if (ev.type !== PhysicsEventType.TRIGGER_ENTERED) return;
-            // Ignora a bola quicando dentro do gol durante a pausa/fim de jogo
-            if (this.gameState === "GOAL_PAUSE" || this.gameState === "GAMEOVER") return;
+            // Ignora a bola quicando dentro do gol durante pausas e fim de jogo
+            if (this.gameState === "GOAL_PAUSE" || this.gameState === "HALF_TIME" || this.gameState === "GAMEOVER") return;
             const a = ev.collider.transformNode?.name ?? "";
             const b = ev.collidedAgainst.transformNode?.name ?? "";
             const side = triggerSides.get(a) ?? triggerSides.get(b);
@@ -966,22 +976,69 @@ export class MomentumSoccerGame {
         setTimeout(() => {
             this.goalTxt.isVisible = false;
             if (this.gameState !== "GOAL_PAUSE") return;
-            if (this.playerScore >= MomentumSoccerGame.WIN_GOALS || this.cpuScore >= MomentumSoccerGame.WIN_GOALS) {
-                this.endMatch();
-            } else {
-                this.resetFormation();
-                // Quem sofre o gol recomeça com saída de bola obrigatória
-                this.beginKickoff(scorer === "player" ? "cpu" : "player");
-            }
+            this.resetFormation();
+            // Quem sofre o gol recomeça com saída de bola obrigatória
+            this.beginKickoff(scorer === "player" ? "cpu" : "player");
         }, 2400);
     }
 
+    // ── CRONÔMETRO DA PARTIDA (2 TEMPOS DE 3 MINUTOS) ───────────────────────
+
+    /** O relógio corre com a partida viva (mira, lance e comemoração). */
+    private isClockRunning(): boolean {
+        return this.gameState === "PLAYER_AIM" || this.gameState === "CPU_TURN"
+            || this.gameState === "ROLLING" || this.gameState === "GOAL_PAUSE";
+    }
+
+    private updateMatchClock(dt: number): void {
+        if (!this.isClockRunning()) return;
+        this.timeLeft = Math.max(this.timeLeft - dt, 0);
+
+        const second = Math.ceil(this.timeLeft);
+        if (second !== this.lastTimerSecond) {
+            this.lastTimerSecond = second;
+            this.updateTimerText();
+        }
+
+        // O tempo só se encerra com a bola parada (entre lances)
+        if (this.timeLeft <= 0 && (this.gameState === "PLAYER_AIM" || this.gameState === "CPU_TURN")) {
+            this.endHalf();
+        }
+    }
+
+    /** Fim do 1º tempo: intervalo, reset da formação e troca do kickoff. */
+    private endHalf(): void {
+        if (this.half === 1) {
+            this.goalTxt.text = this.t("⏸ Fim do 1º Tempo — Intervalo!", "⏸ End of 1st Half — Break!");
+            this.goalTxt.color = "#9FD4FF";
+            this.goalTxt.isVisible = true;
+            this.enterState("HALF_TIME");
+
+            setTimeout(() => {
+                this.goalTxt.isVisible = false;
+                if (this.gameState !== "HALF_TIME") return;
+                this.half = 2;
+                this.timeLeft = MomentumSoccerGame.HALF_SECONDS;
+                this.resetFormation();
+                // No 2º tempo, a saída de bola é do outro time (CPU)
+                this.beginKickoff("cpu");
+            }, 3200);
+        } else {
+            this.endMatch();
+        }
+    }
+
     private endMatch(): void {
-        const playerWon = this.playerScore > this.cpuScore;
-        this.saveRecord(playerWon);
+        const outcome = this.playerScore > this.cpuScore ? "win"
+            : this.playerScore < this.cpuScore ? "loss" : "draw";
+        this.saveRecord(outcome);
         this.enterState("GAMEOVER");
 
-        this.gameOverTitle.text = playerWon ? this.t("🏆 Você venceu!", "🏆 You won!") : this.t("😞 O adversário venceu…", "😞 The opponent won…");
+        this.gameOverTitle.text = outcome === "win"
+            ? this.t("🏆 Você venceu!", "🏆 You won!")
+            : outcome === "loss"
+                ? this.t("😞 O adversário venceu…", "😞 The opponent won…")
+                : this.t("🤝 Empate!", "🤝 It's a draw!");
         this.gameOverPhrase.text = this.t(
             "💡 Quanto maior a massa, menor a velocidade\npara o mesmo impulso: v = p/m.",
             "💡 The larger the mass, the lower the velocity\nfor the same impulse: v = p/m."
@@ -993,19 +1050,24 @@ export class MomentumSoccerGame {
     private restartMatch(): void {
         this.playerScore = 0;
         this.cpuScore = 0;
+        this.half = 1;
+        this.timeLeft = MomentumSoccerGame.HALF_SECONDS;
+        this.lastTimerSecond = -1;
         this.updateScoreText();
+        this.updateTimerText();
         this.gameOverPanel.isVisible = false;
         this.resetFormation();
         this.onGameResumeCallback?.();
         this.beginKickoff("player");
     }
 
-    private saveRecord(playerWon: boolean): void {
+    private saveRecord(outcome: "win" | "loss" | "draw"): void {
         try {
             const raw = localStorage.getItem("momentum_soccer_record");
-            const rec = raw ? JSON.parse(raw) : { wins: 0, losses: 0 };
-            if (playerWon) rec.wins++;
-            else rec.losses++;
+            const rec = raw ? JSON.parse(raw) : { wins: 0, losses: 0, draws: 0 };
+            if (outcome === "win") rec.wins = (rec.wins ?? 0) + 1;
+            else if (outcome === "loss") rec.losses = (rec.losses ?? 0) + 1;
+            else rec.draws = (rec.draws ?? 0) + 1;
             localStorage.setItem("momentum_soccer_record", JSON.stringify(rec));
         } catch { /* armazenamento indisponível: recorde apenas da sessão */ }
     }
@@ -1015,10 +1077,10 @@ export class MomentumSoccerGame {
     private buildGUI(): void {
         this.ui = AdvancedDynamicTexture.CreateFullscreenUI("UI");
 
-        // Barra superior: placar + indicador de turno
+        // Barra superior: placar, cronômetro da partida e indicador de turno
         const topBar = new Rectangle("topBar");
         topBar.width = "100%";
-        topBar.height = "52px";
+        topBar.height = "68px";
         topBar.thickness = 0;
         topBar.background = "rgba(0,0,0,0.5)";
         topBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
@@ -1028,13 +1090,20 @@ export class MomentumSoccerGame {
         this.scoreTxt.color = "white";
         this.scoreTxt.fontSize = 17;
         this.scoreTxt.fontWeight = "bold";
-        this.scoreTxt.top = "-9px";
+        this.scoreTxt.top = "-19px";
         topBar.addControl(this.scoreTxt);
+
+        this.timerTxt = new TextBlock("timer", "");
+        this.timerTxt.color = "#FFE9A8";
+        this.timerTxt.fontSize = 12;
+        this.timerTxt.fontWeight = "bold";
+        this.timerTxt.top = "2px";
+        topBar.addControl(this.timerTxt);
 
         this.turnTxt = new TextBlock("turn", "");
         this.turnTxt.color = "#9FD4FF";
         this.turnTxt.fontSize = 12;
-        this.turnTxt.top = "13px";
+        this.turnTxt.top = "22px";
         topBar.addControl(this.turnTxt);
 
         this.restartBtn = Button.CreateSimpleButton("restart", "↺");
@@ -1137,7 +1206,7 @@ export class MomentumSoccerGame {
         this.alertTxt.shadowColor = "rgba(0,0,0,0.9)";
         this.alertTxt.shadowBlur = 5;
         this.alertTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.alertTxt.top = "62px";
+        this.alertTxt.top = "78px";
         this.alertTxt.height = "30px";
         this.alertTxt.isVisible = false;
         this.ui.addControl(this.alertTxt);
@@ -1259,6 +1328,17 @@ export class MomentumSoccerGame {
         );
     }
 
+    /** Cronômetro regulamentar: "1º Tempo — 02:45" (MM:SS). */
+    private updateTimerText(): void {
+        const total = Math.max(Math.ceil(this.timeLeft), 0);
+        const mm = String(Math.floor(total / 60)).padStart(2, "0");
+        const ss = String(total % 60).padStart(2, "0");
+        const halfLabel = this.half === 1
+            ? this.t("1º Tempo", "1st Half")
+            : this.t("2º Tempo", "2nd Half");
+        this.timerTxt.text = `${halfLabel} — ${mm}:${ss}`;
+    }
+
     private updateTurnText(): void {
         const touches = `${this.teamTouchesLeft}/${MomentumSoccerGame.TEAM_TOUCHES}`;
         switch (this.gameState) {
@@ -1278,6 +1358,10 @@ export class MomentumSoccerGame {
                 this.turnTxt.text = this.t("⚽ Bola em jogo…", "⚽ Ball in play…");
                 this.turnTxt.color = "#CCCCCC";
                 break;
+            case "HALF_TIME":
+                this.turnTxt.text = this.t("⏸ Intervalo", "⏸ Half-time break");
+                this.turnTxt.color = "#9FD4FF";
+                break;
             default:
                 this.turnTxt.text = "";
         }
@@ -1285,6 +1369,7 @@ export class MomentumSoccerGame {
 
     private applyTexts(): void {
         this.updateScoreText();
+        this.updateTimerText();
         this.updateTurnText();
         this.hintTxt.text = this.hasShotOnce ? "" : this.t(
             "👆 Toque em um botão azul, arraste\npara trás e solte para lançar!",
