@@ -54,7 +54,7 @@ export class MomentumSoccerGame {
     /** Escala fixa absoluta da barra gráfica de energia (J). */
     private static readonly ENERGY_BAR_MAX = 200;
     /** Largura útil da barra de energia no painel (px de GUI). */
-    private static readonly ENERGY_BAR_W = 172;
+    private static readonly ENERGY_BAR_W = 188;
 
     private scene: Scene;
     private plugin!: HavokPlugin;
@@ -1055,8 +1055,8 @@ export class MomentumSoccerGame {
         // central, a trajetória do chute nem o dedo durante o arrasto, e fica
         // afastado do botão Home (canto inferior direito).
         this.aimPanel = new Rectangle("aimPanel");
-        this.aimPanel.width = "196px";
-        this.aimPanel.height = "122px";
+        this.aimPanel.width = "212px";
+        this.aimPanel.height = "130px";
         this.aimPanel.cornerRadius = 8;
         this.aimPanel.thickness = 1;
         this.aimPanel.color = "#FFD24A";
@@ -1097,25 +1097,27 @@ export class MomentumSoccerGame {
         this.energyBarSpend.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         barBg.addControl(this.energyBarSpend);
 
+        // Energia Potencial restante e Trabalho projetado (W = ΔK), logo
+        // abaixo da barra gráfica
+        this.aimEnergyTxt = new TextBlock("aimEnergyTxt", "");
+        this.aimEnergyTxt.color = "#7FFFD4";
+        this.aimEnergyTxt.fontSize = 11;
+        this.aimEnergyTxt.fontWeight = "bold";
+        this.aimEnergyTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.aimEnergyTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.aimEnergyTxt.paddingLeft = "10px";
+        this.aimEnergyTxt.paddingTop = "24px"; // abaixo da barra de energia
+        this.aimPanel.addControl(this.aimEnergyTxt);
+
+        // Nome da peça ativa e grandezas do lance (m, v, p, K, P)
         this.aimTxt = new TextBlock("aimTxt", "");
         this.aimTxt.color = "white";
         this.aimTxt.fontSize = 11;
         this.aimTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimTxt.paddingLeft = "10px";
-        this.aimTxt.paddingTop = "24px"; // abaixo da barra de energia
+        this.aimTxt.paddingTop = "68px"; // abaixo do bloco de energia/trabalho
         this.aimPanel.addControl(this.aimTxt);
-
-        // Tanque de energia da peça (E restante / gasto projetado / aviso)
-        this.aimEnergyTxt = new TextBlock("aimEnergyTxt", "");
-        this.aimEnergyTxt.color = "#7FFFD4";
-        this.aimEnergyTxt.fontSize = 11;
-        this.aimEnergyTxt.fontWeight = "bold";
-        this.aimEnergyTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        this.aimEnergyTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-        this.aimEnergyTxt.paddingLeft = "10px";
-        this.aimEnergyTxt.paddingBottom = "7px";
-        this.aimPanel.addControl(this.aimEnergyTxt);
 
         // Mensagem de gol
         this.goalTxt = new TextBlock("goal", "");
@@ -1216,11 +1218,12 @@ export class MomentumSoccerGame {
             `p = ${this.fmt(aim.impulse, 1)} kg·m/s\n` +
             `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W`;
 
-        // Tanque de energia: restante e consumo projetado do lance
+        // Teorema Trabalho-Energia Cinética (W = ΔK): o trabalho do arrasto
+        // converte-se na energia cinética do lance, deduzida do tanque
         const low = energyLeft - kinetic <= MomentumSoccerGame.ENERGY_LOW;
         this.aimEnergyTxt.text =
-            this.t(`E. Restante: ${this.fmt(energyLeft, 1)} J`, `Energy left: ${this.fmt(energyLeft, 1)} J`) +
-            this.t(` | Gasto: -${this.fmt(kinetic, 1)} J`, ` | Spend: -${this.fmt(kinetic, 1)} J`) +
+            this.t(`Energia Potencial: ${this.fmt(energyLeft, 1)} J`, `Potential Energy: ${this.fmt(energyLeft, 1)} J`) + "\n" +
+            this.t(`Trabalho a ser realizado: -${this.fmt(kinetic, 1)} J`, `Work to be done: -${this.fmt(kinetic, 1)} J`) +
             (low ? this.t("\n⚠ Energia Baixa!", "\n⚠ Low Energy!") : "");
         this.aimEnergyTxt.color = low ? "#FF6655" : "#7FFFD4";
 
