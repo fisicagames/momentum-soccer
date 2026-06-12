@@ -256,7 +256,7 @@ export class MomentumSoccerGame {
             this.cpuPieces.push(createPiece(this.scene, f.archetype, "cpu", new Vector3(-f.x, y, f.z)));
         }
 
-        const gkY = 0.28 / 2 + 0.001;
+        const gkY = 0.26 / 2 + 0.001;
         this.playerGK = createGoalkeeper(this.scene, "player", new Vector3(0, gkY, -(Arena.GOAL_LINE_Z - 0.45)));
         this.cpuGK = createGoalkeeper(this.scene, "cpu", new Vector3(0, gkY, Arena.GOAL_LINE_Z - 0.45));
 
@@ -300,7 +300,7 @@ export class MomentumSoccerGame {
             const t = (gk.home.z - ballPos.z) / denom;
             x = ballPos.x * (1 - t);
         }
-        const range = Arena.GOAL_W / 2 - 0.35;
+        const range = Arena.GOAL_W / 2 - gk.radius;
         this.gkRepositionTargets.set(gk, Math.max(-range, Math.min(range, x)));
     }
 
@@ -481,7 +481,7 @@ export class MomentumSoccerGame {
         }
         for (const gk of [this.playerGK, this.cpuGK]) {
             if (exclude.includes(gk.mesh)) continue;
-            blockers.push({ x: gk.mesh.position.x, z: gk.mesh.position.z, radius: gk.halfWidth * 0.7 });
+            blockers.push({ x: gk.mesh.position.x, z: gk.mesh.position.z, radius: gk.radius });
         }
 
         for (const blk of blockers) {

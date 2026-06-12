@@ -38,13 +38,13 @@ export interface Piece {
     home: Vector3;
 }
 
-/** Goleiro oficial: bloco de acrílico cinemático, sempre paralelo à linha de gol. */
+/** Goleiro: botão circular cinemático em cor exclusiva, preso à linha do gol. */
 export interface Goalkeeper {
     mesh: Mesh;
     aggregate: PhysicsAggregate;
     team: Team;
     home: Vector3;
-    halfWidth: number;
+    radius: number;
 }
 
 export interface Ball {
@@ -174,36 +174,41 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
 }
 
 /**
- * Goleiro oficial de futebol de mesa: paralelepípedo de acrílico bem mais
- * largo do que alto (~80 mm × 15 mm), cinemático (ANIMATED) — bloqueia a bola
- * com colisão real, mas é movido por código e nunca rotaciona, permanecendo
- * sempre paralelo à linha de gol.
+ * Goleiro: botão circular padrão (mesmo perfil de acrílico das peças de
+ * linha) em Amarelo Ouro — cor exclusiva que o destaca dos dois times.
+ * Continua cinemático (ANIMATED): bloqueia a bola com colisão real, é movido
+ * apenas por código e nunca rotaciona.
  */
 export function createGoalkeeper(scene: Scene, team: Team, home: Vector3): Goalkeeper {
-    const WIDTH = 1.5;
-    const HEIGHT = 0.28;
-    const DEPTH = 0.30;
+    const RADIUS = 0.42;
+    const HEIGHT = 0.26;
 
-    const mesh = MeshBuilder.CreateBox(`goalkeeper_${team}`, {
-        width: WIDTH, height: HEIGHT, depth: DEPTH,
+    const mesh = MeshBuilder.CreateLathe(`goalkeeper_${team}`, {
+        shape: buttonLatheShape(RADIUS, HEIGHT),
+        tessellation: 28,
+        sideOrientation: Mesh.DOUBLESIDE,
     }, scene);
     mesh.position.copyFrom(home);
     mesh.rotationQuaternion = Quaternion.Identity();
 
     const mat = new StandardMaterial(`gkMat_${team}`, scene);
-    const accent = TEAM_COLORS[team].base;
-    mat.diffuseColor = new Color3(
-        0.78 + accent.r * 0.2, 0.78 + accent.g * 0.2, 0.78 + accent.b * 0.2
-    );
-    mat.specularColor = new Color3(0.9, 0.9, 0.9); // acrílico brilhante
+    mat.diffuseColor = new Color3(1.0, 0.78, 0.05);   // Amarelo Ouro
+    mat.emissiveColor = new Color3(0.25, 0.18, 0.0);  // leve brilho próprio
+    mat.specularColor = new Color3(0.95, 0.9, 0.6);   // acrílico brilhante
     mesh.material = mat;
 
-    const aggregate = new PhysicsAggregate(mesh, PhysicsShapeType.BOX,
-        { mass: 0, friction: 0.2, restitution: 0.5 }, scene);
+    const aggregate = new PhysicsAggregate(mesh, PhysicsShapeType.CYLINDER, {
+        mass: 0,
+        radius: RADIUS,
+        pointA: new Vector3(0, -HEIGHT / 2, 0),
+        pointB: new Vector3(0, HEIGHT / 2, 0),
+        friction: 0.2,
+        restitution: 0.5,
+    }, scene);
     aggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
     aggregate.body.disablePreStep = false; // movido via mesh.position a cada frame
 
-    return { mesh, aggregate, team, home: home.clone(), halfWidth: WIDTH / 2 };
+    return { mesh, aggregate, team, home: home.clone(), radius: RADIUS };
 }
 
 export function createBall(scene: Scene, home: Vector3): Ball {
