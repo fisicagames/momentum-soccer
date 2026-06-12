@@ -38,6 +38,8 @@ type Turn = "player" | "cpu";
  */
 export class MomentumSoccerGame {
     private static readonly MAX_IMPULSE = 18;  // kg·m/s por jogada (igual para todas as peças)
+    /** Saída de bola: momento máximo do passe inicial (recuo suave). */
+    private static readonly KICKOFF_MAX_IMPULSE = 2.0;
     private static readonly MAX_DRAG = 2.2;    // m de recuo para o impulso máximo
     private static readonly WIN_GOALS = 3;
     private static readonly SETTLE_SPEED = 0.18;
@@ -475,6 +477,9 @@ export class MomentumSoccerGame {
             camera: this.camera,
             maxImpulse: MomentumSoccerGame.MAX_IMPULSE,
             maxDrag: MomentumSoccerGame.MAX_DRAG,
+            impulseCap: () => this.kickoffActive
+                ? MomentumSoccerGame.KICKOFF_MAX_IMPULSE
+                : MomentumSoccerGame.MAX_IMPULSE,
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
             // Saída de bola: só o centroavante pode ser lançado
@@ -673,7 +678,8 @@ export class MomentumSoccerGame {
         const dx = dir.x * cos - dir.z * sin;
         const dz = dir.x * sin + dir.z * cos;
 
-        const impulse = piece.spec.mass * 2.5; // passe suave
+        // A CPU obedece ao mesmo teto da saída de bola (p ≤ 2 kg·m/s)
+        const impulse = Math.min(piece.spec.mass * 2.5, MomentumSoccerGame.KICKOFF_MAX_IMPULSE);
         this._tmp.set(dx * impulse, 0, dz * impulse);
         piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
 

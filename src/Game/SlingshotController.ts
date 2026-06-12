@@ -27,6 +27,8 @@ export interface SlingshotOptions {
     maxImpulse: number;
     /** Distância máxima de arrasto (m) mapeada para maxImpulse. */
     maxDrag: number;
+    /** Teto dinâmico de impulso (ex.: saída de bola limita p a 2 kg·m/s). */
+    impulseCap: () => number;
     /** Peças do jogador (para seleção por proximidade no toque). */
     playerPieces: () => Piece[];
     canAim: () => boolean;
@@ -194,10 +196,14 @@ export class SlingshotController {
 
         if (!this.pointerToGround(piecePos.y, this._groundPoint)) return;
 
-        // Arrasto traseiro: vetor do ponteiro até a peça define direção e intensidade
+        // Arrasto traseiro: vetor do ponteiro até a peça define direção e intensidade.
+        // O teto dinâmico (ex.: p ≤ 2 na saída de bola) trava o recuo efetivo,
+        // o impulso e a seta de projeção no valor correspondente.
+        const cap = this.opts.impulseCap();
+        const maxDragNow = this.opts.maxDrag * Math.min(cap / this.opts.maxImpulse, 1);
         piecePos.subtractToRef(this._groundPoint, this._dragVec);
         this._dragVec.y = 0;
-        const dragLen = Math.min(this._dragVec.length(), this.opts.maxDrag);
+        const dragLen = Math.min(this._dragVec.length(), maxDragNow);
         if (dragLen < 0.02) { this.hideAim(); this.aim = null; return; }
 
         this._dir.copyFrom(this._dragVec).normalize();
