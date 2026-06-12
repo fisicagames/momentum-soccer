@@ -1009,7 +1009,8 @@ export class MomentumSoccerGame {
     /** Fim do 1º tempo: intervalo, reset da formação e troca do kickoff. */
     private endHalf(): void {
         if (this.half === 1) {
-            this.goalTxt.text = this.t("⏸ Fim do 1º Tempo — Intervalo!", "⏸ End of 1st Half — Break!");
+            // Quebra de linha: o anúncio cabe na largura útil da tela vertical
+            this.goalTxt.text = this.t("⏸ Fim do 1º Tempo\n— Intervalo —", "⏸ End of 1st Half\n— Break —");
             this.goalTxt.color = "#9FD4FF";
             this.goalTxt.isVisible = true;
             this.enterState("HALF_TIME");
