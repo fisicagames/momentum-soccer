@@ -30,6 +30,10 @@ export interface SlingshotOptions {
     /** Peças do jogador (para seleção por proximidade no toque). */
     playerPieces: () => Piece[];
     canAim: () => boolean;
+    /** Restrição de seleção (ex.: saída de bola só com o centroavante). */
+    canSelectPiece: (piece: Piece) => boolean;
+    /** Jogador tocou uma peça com a seleção bloqueada. */
+    onBlockedTap: (piece: Piece) => void;
     onAimUpdate: (aim: AimState) => void;
     onAimEnd: () => void;
     onShoot: (aim: AimState) => void;
@@ -128,12 +132,18 @@ export class SlingshotController {
             ? (pick.pickedMesh.metadata.piece as Piece)
             : null;
 
+        if (piece && !this.opts.canSelectPiece(piece)) {
+            this.opts.onBlockedTap(piece);
+            return;
+        }
+
         // Tolerância de toque (mobile): sem acerto direto, pega a peça mais
         // próxima do ponto tocado no plano do campo, dentro de um raio generoso.
         if (!piece && this.pointerToGround(0.15, this._groundPoint)) {
             const TOUCH_RADIUS = 1.0; // m
             let bestDist = TOUCH_RADIUS;
             for (const p of this.opts.playerPieces()) {
+                if (!this.opts.canSelectPiece(p)) continue;
                 this._tmp.copyFrom(p.mesh.position).subtractInPlace(this._groundPoint);
                 this._tmp.y = 0;
                 const d = this._tmp.length() - p.spec.radius;

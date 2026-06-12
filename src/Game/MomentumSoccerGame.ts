@@ -77,6 +77,13 @@ export class MomentumSoccerGame {
     // Reposição sancionada dos goleiros (alvo em X por goleiro)
     private gkRepositionTargets = new Map<Goalkeeper, number>();
 
+    // ── Saída de bola (KICKOFF) ──────────────────────────────────────────
+    // Ativa no início do jogo e após cada gol: só o centroavante do time da
+    // posse pode ser lançado; desativa assim que o passe inicial sai.
+    private kickoffActive = false;
+    private playerKickoffPiece!: Piece;
+    private cpuKickoffPiece!: Piece;
+
     // Entidades
     private playerPieces: Piece[] = [];
     private cpuPieces: Piece[] = [];
@@ -152,6 +159,9 @@ export class MomentumSoccerGame {
         this.setupSlingshot();
         this.buildGUI();
         this.setupGameLoop();
+
+        // A partida abre com saída de bola do jogador
+        this.beginKickoff("player");
 
         CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false })
             .then(s => { this.impactSound = s; });
@@ -256,6 +266,10 @@ export class MomentumSoccerGame {
             this.cpuPieces.push(createPiece(this.scene, f.archetype, "cpu", new Vector3(-f.x, y, f.z)));
         }
 
+        // Centroavante (velocista central, índice 8): executa a saída de bola
+        this.playerKickoffPiece = this.playerPieces[8];
+        this.cpuKickoffPiece = this.cpuPieces[8];
+
         const gkY = 0.26 / 2 + 0.001;
         this.playerGK = createGoalkeeper(this.scene, "player", new Vector3(0, gkY, -(Arena.GOAL_LINE_Z - 0.45)));
         this.cpuGK = createGoalkeeper(this.scene, "cpu", new Vector3(0, gkY, Arena.GOAL_LINE_Z - 0.45));
@@ -328,6 +342,22 @@ export class MomentumSoccerGame {
     /** Entra no estado de mira do time com a posse. */
     private enterTurnState(): void {
         this.enterState(this.possession === "player" ? "PLAYER_AIM" : "CPU_TURN");
+    }
+
+    /**
+     * Saída de bola tática: o centroavante do time da posse é posicionado
+     * ligeiramente à frente da bola (rumo ao campo adversário), a um raio de
+     * distância — o ângulo de chute direto ao gol fica impraticável e o
+     * primeiro lance vira naturalmente um recuo ou passe lateral. Só ele
+     * pode ser selecionado até o passe inicial sair.
+     */
+    private beginKickoff(team: Turn): void {
+        const piece = team === "player" ? this.playerKickoffPiece : this.cpuKickoffPiece;
+        const gap = this.ball.radius + piece.spec.radius + piece.spec.radius; // folga = raio do botão
+        const sign = team === "player" ? 1 : -1;
+        this.teleport(piece.mesh, this._tmp.set(0, piece.home.y, sign * gap), piece.aggregate);
+        this.kickoffActive = true;
+        this.changePossessionTo(team);
     }
 
     /**
@@ -441,6 +471,14 @@ export class MomentumSoccerGame {
             maxDrag: MomentumSoccerGame.MAX_DRAG,
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
+            // Saída de bola: só o centroavante pode ser lançado
+            canSelectPiece: (piece) => !this.kickoffActive || piece === this.playerKickoffPiece,
+            onBlockedTap: () => {
+                this.showAlert(this.t(
+                    "⚽ Saída de bola: passe obrigatório com o centroavante!",
+                    "⚽ Kickoff: mandatory pass with the centre forward!"
+                ), "#FFC34D");
+            },
             onAimUpdate: (aim) => {
                 this.hintTxt.isVisible = false;
                 this.updateAimPanel(aim);
@@ -459,6 +497,7 @@ export class MomentumSoccerGame {
         aim.piece.aggregate.body.applyImpulse(this._tmp, aim.piece.mesh.getAbsolutePosition());
         this.hasShotOnce = true;
         this.hintTxt.isVisible = false;
+        this.kickoffActive = false; // passe inicial dado: seleção liberada
         this.trackShot(aim.piece, "player");
         this.enterState("ROLLING");
     }
@@ -511,6 +550,11 @@ export class MomentumSoccerGame {
      *    infração do 4º toque).
      */
     private cpuShoot(): void {
+        if (this.kickoffActive) {
+            this.cpuKickoffPass();
+            return;
+        }
+
         const ballPos = this.ball.mesh.position;
         const playerGoal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
 
@@ -605,6 +649,30 @@ export class MomentumSoccerGame {
         best.piece.aggregate.body.applyImpulse(this._tmp, best.piece.mesh.getAbsolutePosition());
 
         this.trackShot(best.piece, "cpu");
+        this.enterState("ROLLING");
+    }
+
+    /**
+     * Saída de bola da CPU: o centroavante (à frente da bola) recua o passe
+     * para o próprio campo com um leve desvio lateral.
+     */
+    private cpuKickoffPass(): void {
+        const piece = this.cpuKickoffPiece;
+        const dir = this.ball.mesh.position.subtract(piece.mesh.position);
+        dir.y = 0;
+        dir.normalize();
+
+        const angle = (Math.random() - 0.5) * 0.7; // desvio lateral do recuo
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const dx = dir.x * cos - dir.z * sin;
+        const dz = dir.x * sin + dir.z * cos;
+
+        const impulse = piece.spec.mass * 2.5; // passe suave
+        this._tmp.set(dx * impulse, 0, dz * impulse);
+        piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
+
+        this.kickoffActive = false;
+        this.trackShot(piece, "cpu");
         this.enterState("ROLLING");
     }
 
@@ -924,8 +992,8 @@ export class MomentumSoccerGame {
                 this.endMatch();
             } else {
                 this.resetFormation();
-                // Quem sofre o gol recomeça, com posse e contadores renovados
-                this.changePossessionTo(scorer === "player" ? "cpu" : "player");
+                // Quem sofre o gol recomeça com saída de bola obrigatória
+                this.beginKickoff(scorer === "player" ? "cpu" : "player");
             }
         }, 2400);
     }
@@ -951,7 +1019,7 @@ export class MomentumSoccerGame {
         this.gameOverPanel.isVisible = false;
         this.resetFormation();
         this.onGameResumeCallback?.();
-        this.changePossessionTo("player");
+        this.beginKickoff("player");
     }
 
     private saveRecord(playerWon: boolean): void {
@@ -1149,17 +1217,15 @@ export class MomentumSoccerGame {
         const touches = `${this.teamTouchesLeft}/${MomentumSoccerGame.TEAM_TOUCHES}`;
         switch (this.gameState) {
             case "PLAYER_AIM":
-                this.turnTxt.text = this.t(
-                    `👆 Sua posse — Toques: ${touches}`,
-                    `👆 Your possession — Touches: ${touches}`
-                );
+                this.turnTxt.text = this.kickoffActive
+                    ? this.t("⚽ Saída de bola — passe com o centroavante!", "⚽ Kickoff — pass with the centre forward!")
+                    : this.t(`👆 Sua posse — Toques: ${touches}`, `👆 Your possession — Touches: ${touches}`);
                 this.turnTxt.color = "#9FD4FF";
                 break;
             case "CPU_TURN":
-                this.turnTxt.text = this.t(
-                    `📺 Posse do adversário — Toques: ${touches}`,
-                    `📺 Opponent's possession — Touches: ${touches}`
-                );
+                this.turnTxt.text = this.kickoffActive
+                    ? this.t("📺 Saída de bola do adversário…", "📺 Opponent's kickoff…")
+                    : this.t(`📺 Posse do adversário — Toques: ${touches}`, `📺 Opponent's possession — Touches: ${touches}`);
                 this.turnTxt.color = "#FFAA99";
                 break;
             case "ROLLING":
