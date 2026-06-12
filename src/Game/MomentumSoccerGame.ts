@@ -1287,12 +1287,12 @@ export class MomentumSoccerGame {
             `p = ${this.fmt(aim.impulse, 1)} kg·m/s\n` +
             `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W`;
 
-        // Teorema Trabalho-Energia Cinética (W = ΔK): o trabalho do arrasto
-        // converte-se na energia cinética do lance, deduzida do tanque
+        // Teorema Trabalho-Energia Cinética: o arrasto realiza trabalho motor
+        // positivo (W = ΔK > 0), que sai do tanque e vira K do disparo
         const low = energyLeft - kinetic <= MomentumSoccerGame.ENERGY_LOW;
         this.aimEnergyTxt.text =
             this.t(`Energia Potencial: ${this.fmt(energyLeft, 1)} J`, `Potential Energy: ${this.fmt(energyLeft, 1)} J`) + "\n" +
-            this.t(`Trabalho a ser realizado: -${this.fmt(kinetic, 1)} J`, `Work to be done: -${this.fmt(kinetic, 1)} J`) +
+            this.t(`Trabalho a ser realizado: ${this.fmt(kinetic, 1)} J`, `Work to be done: ${this.fmt(kinetic, 1)} J`) +
             (low ? this.t("\n⚠ Energia Baixa!", "\n⚠ Low Energy!") : "");
         this.aimEnergyTxt.color = low ? "#FF6655" : "#7FFFD4";
 
