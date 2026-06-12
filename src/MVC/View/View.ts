@@ -73,7 +73,7 @@ export class View implements IView {
         this.rectangleCenterPhrase.isVisible = false;
     }
 
-    /** Exibe o melhor resultado salvo no menu (ex.: placar/recorde do Momentum Soccer). */
+    /** Exibe o melhor resultado salvo no menu (ex.: placar/recorde do Joule Cup 2026). */
     public updateBestStats(text: string): void {
         this.textblockMenuBest.text = text;
     }

@@ -11,7 +11,7 @@ export class LanguageSwitcher {
         this.strings = {
             ButtonLang: ["ENGLISH", "PORTUGUÊS"],
             TextblockMeta: ["Objetivo: arraste os botões do seu time para lançá-los contra a bola e marcar gols. Cada peça tem uma massa diferente: para o mesmo impulso, peças leves saem rápido e peças pesadas saem devagar (p = m·v).", "Objective: drag your team's pieces to launch them at the ball and score goals. Each piece has a different mass: for the same impulse, light pieces move fast and heavy pieces move slowly (p = m·v)."],
-            TextblockTitle: ["Momentum Soccer", "Momentum Soccer"],
+            TextblockTitle: ["Joule Cup\n2026", "Joule Cup\n2026"],
             ButtonMenuStartA: ["Iniciar", "Start"],
             ButtonMenuStartB: ["Momento Linear", "Linear Momentum"],
             ButtonMenuStartC: ["None", "None"],

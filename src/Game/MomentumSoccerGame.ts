@@ -30,7 +30,8 @@ type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "GAMEOVE
 type Turn = "player" | "cpu";
 
 /**
- * Momentum Soccer — futebol de botão por turnos para ensinar momento linear.
+ * Joule Cup 2026 — futebol de botão por turnos para ensinar momento linear
+ * e conservação de energia.
  *
  * Conceitos em jogo: p = m·v (mira com v = J/m), impulso J = Δp aplicado via
  * applyImpulse, conservação do momento nas colisões (feedback proporcional ao
