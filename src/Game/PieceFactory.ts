@@ -60,23 +60,28 @@ function createMassLabel(scene: Scene, spec: ArchetypeSpec, team: Team): Mesh {
     // Material compartilhado entre as peças do mesmo arquétipo/time (são 22 botões)
     const cached = scene.getMaterialByName(`massMat_${team}_${spec.id}`) as StandardMaterial | null;
     if (cached) {
-        const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.78 }, scene);
+        const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.88 }, scene);
         plane.rotation.x = Math.PI / 2;
         plane.material = cached;
         return plane;
     }
-    const size = 256;
+    // Alta resolução + contorno espesso: número legível à distância sobre
+    // qualquer cor de base (são só 8 texturas — 4 arquétipos × 2 times)
+    const size = 512;
     const tex = new DynamicTexture(`massTex_${team}_${spec.id}`, { width: size, height: size }, scene, true);
     tex.hasAlpha = true;
     const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
     ctx.clearRect(0, 0, size, size);
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.font = "bold 110px Arial";
+    ctx.font = "bold 330px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(`${spec.mass.toFixed(0)}`, size / 2, size / 2 - 18);
-    ctx.font = "bold 52px Arial";
-    ctx.fillText("kg", size / 2, size / 2 + 62);
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 34;
+    ctx.strokeStyle = "rgba(8, 8, 16, 0.9)";
+    const massText = `${spec.mass.toFixed(0)}`;
+    ctx.strokeText(massText, size / 2, size / 2 + 14);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(massText, size / 2, size / 2 + 14);
     tex.update();
 
     const mat = new StandardMaterial(`massMat_${team}_${spec.id}`, scene);
@@ -86,7 +91,7 @@ function createMassLabel(scene: Scene, spec: ArchetypeSpec, team: Team): Mesh {
     mat.specularColor = Color3.Black();
     mat.backFaceCulling = false;
 
-    const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.78 }, scene);
+    const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.88 }, scene);
     plane.rotation.x = Math.PI / 2;
     plane.material = mat;
     return plane;
