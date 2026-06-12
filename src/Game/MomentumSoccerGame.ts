@@ -1078,20 +1078,27 @@ export class MomentumSoccerGame {
         this.restartBtn.onPointerClickObservable.add(() => this.restartMatch());
         topBar.addControl(this.restartBtn);
 
-        // Painel de mira (m, v, p) ancorado na peça selecionada
+        // Painel de telemetria da mira (m, v, p, K, P): fixo em screen-space no
+        // canto inferior esquerdo (layout retrato) — não obstrui o campo
+        // central, a trajetória do chute nem o dedo durante o arrasto, e fica
+        // afastado do botão Home (canto inferior direito).
         this.aimPanel = new Rectangle("aimPanel");
-        this.aimPanel.width = "150px";
-        this.aimPanel.height = "64px";
+        this.aimPanel.width = "196px";
+        this.aimPanel.height = "76px";
         this.aimPanel.cornerRadius = 8;
         this.aimPanel.thickness = 1;
         this.aimPanel.color = "#FFD24A";
         this.aimPanel.background = "rgba(10,10,30,0.78)";
+        this.aimPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.aimPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+        this.aimPanel.left = "12px";
+        this.aimPanel.top = "-80px"; // margem segura acima da borda inferior
         this.aimPanel.isVisible = false;
         this.ui.addControl(this.aimPanel);
 
         this.aimTxt = new TextBlock("aimTxt", "");
         this.aimTxt.color = "white";
-        this.aimTxt.fontSize = 12;
+        this.aimTxt.fontSize = 11;
         this.aimTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimTxt.paddingLeft = "10px";
         this.aimPanel.addControl(this.aimTxt);
@@ -1188,16 +1195,17 @@ export class MomentumSoccerGame {
         const streakLine = streak >= MomentumSoccerGame.MAX_PIECE_STREAK
             ? this.t("⚠ 4º toque = perde a posse!", "⚠ 4th touch = lose possession!")
             : this.t(`Toques da peça: ${streak}/3`, `Piece touches: ${streak}/3`);
+
+        // Energia cinética e potência média do impacto (Δt de contato = 0,1 s)
+        const kinetic = 0.5 * aim.piece.spec.mass * aim.velocity * aim.velocity;
+        const power = kinetic / 0.1;
+
         this.aimTxt.text =
-            `${name}  (${streakLine})\n` +
-            `m = ${this.fmt(aim.piece.spec.mass, 1)} kg\n` +
-            `v = ${this.fmt(aim.velocity, 1)} m/s\n` +
-            `p = m·v = ${this.fmt(aim.impulse, 1)} kg·m/s`;
-        if (!this.aimPanel.isVisible) {
-            this.aimPanel.isVisible = true;
-            this.aimPanel.linkWithMesh(aim.piece.mesh);
-            this.aimPanel.linkOffsetY = -85;
-        }
+            `${name} (${streakLine})\n` +
+            `m = ${this.fmt(aim.piece.spec.mass, 1)} kg | v = ${this.fmt(aim.velocity, 1)} m/s\n` +
+            `p = ${this.fmt(aim.impulse, 1)} kg·m/s\n` +
+            `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W`;
+        this.aimPanel.isVisible = true;
     }
 
     /** Aviso rápido central (faltas, turno esgotado, goleiro congelado). */
