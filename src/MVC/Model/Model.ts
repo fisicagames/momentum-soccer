@@ -25,7 +25,7 @@ export class Model implements IModel {
         //Music by Dimitrios Gkorilas from Pixabay
         this.backgroundMusic = new SoundModel(
             "backgroundSound",
-            "./assets/sounds/hitslab-game-gaming-video-game-music-459876.mp3",
+            "./assets/sounds/freesound_community-soccer-stadium-10-6709-compress.mp3",
             true
         );
         this.backgroundMusic.setVolume(1.0);

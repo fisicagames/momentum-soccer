@@ -7,10 +7,10 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
-import { PhysicsShapeType, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
+import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 
 export type Team = "player" | "cpu";
-export type ArchetypeId = "sprinter" | "striker" | "tank";
+export type ArchetypeId = "sprinter" | "striker" | "tank" | "goalkeeper";
 
 export interface ArchetypeSpec {
     id: ArchetypeId;
@@ -24,10 +24,14 @@ export interface ArchetypeSpec {
 
 /** Arquétipos de botões: massas bem distintas para evidenciar v = p/m. */
 export const ARCHETYPES: Record<ArchetypeId, ArchetypeSpec> = {
-    sprinter: { id: "sprinter", namePt: "Velocista", nameEn: "Sprinter", mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
-    striker:  { id: "striker",  namePt: "Atacante",  nameEn: "Striker",  mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
-    tank:     { id: "tank",     namePt: "Tanque",    nameEn: "Tank",     mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
+    sprinter:   { id: "sprinter",   namePt: "Velocista", nameEn: "Sprinter",   mass: 1.0,  radius: 0.25, height: 0.13, specular: 0.25 },
+    striker:    { id: "striker",    namePt: "Atacante",  nameEn: "Striker",    mass: 3.0,  radius: 0.31, height: 0.19, specular: 0.40 },
+    tank:       { id: "tank",       namePt: "Tanque",    nameEn: "Tank",       mass: 8.0,  radius: 0.40, height: 0.29, specular: 0.95 },
+    goalkeeper: { id: "goalkeeper", namePt: "Goleiro",   nameEn: "Goalkeeper", mass: 10.0, radius: 0.42, height: 0.26, specular: 0.95 },
 };
+
+/** Cor exclusiva do goleiro (Amarelo Ouro), igual nos dois times. */
+const GK_COLOR = new Color3(1.0, 0.78, 0.05);
 
 export interface Piece {
     mesh: Mesh;
@@ -36,15 +40,6 @@ export interface Piece {
     team: Team;
     /** Posição inicial (formação), usada em resets e no filtro de segurança. */
     home: Vector3;
-}
-
-/** Goleiro: botão circular cinemático em cor exclusiva, preso à linha do gol. */
-export interface Goalkeeper {
-    mesh: Mesh;
-    aggregate: PhysicsAggregate;
-    team: Team;
-    home: Vector3;
-    radius: number;
 }
 
 export interface Ball {
@@ -120,7 +115,8 @@ function buttonLatheShape(radius: number, height: number): Vector3[] {
 
 export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, home: Vector3): Piece {
     const spec = ARCHETYPES[archetype];
-    const colors = TEAM_COLORS[team];
+    // Goleiro usa a cor exclusiva; peças de linha usam a cor do time
+    const baseColor = archetype === "goalkeeper" ? GK_COLOR : TEAM_COLORS[team].base;
     const name = `piece_${team}_${archetype}`;
 
     // Corpo do botão: perfil de acrílico em superfície de revolução
@@ -133,8 +129,11 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     base.rotationQuaternion = Quaternion.Identity();
 
     const baseMat = new StandardMaterial(name + "_mat", scene);
-    baseMat.diffuseColor = colors.base;
+    baseMat.diffuseColor = baseColor;
     baseMat.specularColor = new Color3(spec.specular, spec.specular, spec.specular);
+    if (archetype === "goalkeeper") {
+        baseMat.emissiveColor = new Color3(0.25, 0.18, 0.0); // leve brilho próprio
+    }
     base.material = baseMat;
 
     // Massa estampada na cavidade central (selo)
@@ -171,44 +170,6 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     label.metadata = { piece };
 
     return piece;
-}
-
-/**
- * Goleiro: botão circular padrão (mesmo perfil de acrílico das peças de
- * linha) em Amarelo Ouro — cor exclusiva que o destaca dos dois times.
- * Continua cinemático (ANIMATED): bloqueia a bola com colisão real, é movido
- * apenas por código e nunca rotaciona.
- */
-export function createGoalkeeper(scene: Scene, team: Team, home: Vector3): Goalkeeper {
-    const RADIUS = 0.42;
-    const HEIGHT = 0.26;
-
-    const mesh = MeshBuilder.CreateLathe(`goalkeeper_${team}`, {
-        shape: buttonLatheShape(RADIUS, HEIGHT),
-        tessellation: 28,
-        sideOrientation: Mesh.DOUBLESIDE,
-    }, scene);
-    mesh.position.copyFrom(home);
-    mesh.rotationQuaternion = Quaternion.Identity();
-
-    const mat = new StandardMaterial(`gkMat_${team}`, scene);
-    mat.diffuseColor = new Color3(1.0, 0.78, 0.05);   // Amarelo Ouro
-    mat.emissiveColor = new Color3(0.25, 0.18, 0.0);  // leve brilho próprio
-    mat.specularColor = new Color3(0.95, 0.9, 0.6);   // acrílico brilhante
-    mesh.material = mat;
-
-    const aggregate = new PhysicsAggregate(mesh, PhysicsShapeType.CYLINDER, {
-        mass: 0,
-        radius: RADIUS,
-        pointA: new Vector3(0, -HEIGHT / 2, 0),
-        pointB: new Vector3(0, HEIGHT / 2, 0),
-        friction: 0.2,
-        restitution: 0.5,
-    }, scene);
-    aggregate.body.setMotionType(PhysicsMotionType.ANIMATED);
-    aggregate.body.disablePreStep = false; // movido via mesh.position a cada frame
-
-    return { mesh, aggregate, team, home: home.clone(), radius: RADIUS };
 }
 
 export function createBall(scene: Scene, home: Vector3): Ball {

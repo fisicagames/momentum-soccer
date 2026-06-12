@@ -23,7 +23,7 @@ import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 
 import { Arena } from "./Arena";
-import { Piece, Ball, Goalkeeper, createPiece, createBall, createGoalkeeper, ARCHETYPES, ArchetypeId } from "./PieceFactory";
+import { Piece, Ball, createPiece, createBall, ARCHETYPES, ArchetypeId } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "GAMEOVER";
@@ -46,8 +46,10 @@ export class MomentumSoccerGame {
     private static readonly ROLLING_TIMEOUT = 8; // s
     /** Regra brasileira: limite de toques coletivos por posse de bola. */
     private static readonly TEAM_TOUCHES = 12;
-    /** Limite de lances consecutivos com o mesmo botão (o 4º é infração). */
-    private static readonly MAX_PIECE_STREAK = 3;
+    /** Peça com energia abaixo deste valor fica exaurida no turno (J). */
+    private static readonly ENERGY_EXHAUSTED = 1.0;
+    /** Limiar do aviso "⚠ Energia Baixa!" no painel (J). */
+    private static readonly ENERGY_LOW = 25;
 
     private scene: Scene;
     private plugin!: HavokPlugin;
@@ -63,9 +65,6 @@ export class MomentumSoccerGame {
     // ── Regra de 12 toques ───────────────────────────────────────────────
     // Toques coletivos restantes do time com a posse
     private teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
-    // Sequência de lances consecutivos com o mesmo botão
-    private streakPiece: Piece | null = null;
-    private streakCount = 0;
     // Rastreamento físico do lance em andamento (classificado ao assentar)
     private currentShot: {
         piece: Piece;
@@ -73,11 +72,12 @@ export class MomentumSoccerGame {
         ballTouched: boolean;
         foul: boolean;             // tocou adversário ANTES da bola
         oppContactAfterBall: boolean; // deslocou adversário DEPOIS da bola
-        fourthTouch: boolean;      // 4º lance consecutivo com o mesmo botão
-        changedButton: boolean;    // trocou de botão em relação ao lance anterior
     } | null = null;
-    // Reposição sancionada dos goleiros (alvo em X por goleiro)
-    private gkRepositionTargets = new Map<Goalkeeper, number>();
+
+    // ── Conservação de energia ───────────────────────────────────────────
+    // Tanque por peça: E(m) = 211.11 − 11.11·m (J), reabastecido no início
+    // de cada posse; cada disparo deduz a energia cinética K = ½·m·v².
+    private pieceEnergy = new Map<Piece, number>();
 
     // ── Saída de bola (KICKOFF) ──────────────────────────────────────────
     // Ativa no início do jogo e após cada gol: só o centroavante do time da
@@ -86,11 +86,9 @@ export class MomentumSoccerGame {
     private playerKickoffPiece!: Piece;
     private cpuKickoffPiece!: Piece;
 
-    // Entidades
+    // Entidades (os goleiros são peças comuns, no índice 10 dos arrays)
     private playerPieces: Piece[] = [];
     private cpuPieces: Piece[] = [];
-    private playerGK!: Goalkeeper;
-    private cpuGK!: Goalkeeper;
     private ball!: Ball;
 
     // Gol detectado pelo trigger físico (consumido pela máquina de estados)
@@ -119,6 +117,7 @@ export class MomentumSoccerGame {
     private hintTxt!: TextBlock;
     private aimPanel!: Rectangle;
     private aimTxt!: TextBlock;
+    private aimEnergyTxt!: TextBlock;
     private gameOverPanel!: Rectangle;
     private gameOverTitle!: TextBlock;
     private gameOverPhrase!: TextBlock;
@@ -260,6 +259,8 @@ export class MomentumSoccerGame {
             { archetype: "sprinter", x: -2.2, z: 1.4 },
             { archetype: "sprinter", x: 0,    z: 1.0 },
             { archetype: "sprinter", x: 2.2,  z: 1.4 },
+            // Goleiro: peça comum de 10 kg, jogável como as demais
+            { archetype: "goalkeeper", x: 0, z: Arena.GOAL_LINE_Z - 0.45 },
         ];
 
         for (const f of formation) {
@@ -272,52 +273,39 @@ export class MomentumSoccerGame {
         this.playerKickoffPiece = this.playerPieces[8];
         this.cpuKickoffPiece = this.cpuPieces[8];
 
-        const gkY = 0.26 / 2 + 0.001;
-        this.playerGK = createGoalkeeper(this.scene, "player", new Vector3(0, gkY, -(Arena.GOAL_LINE_Z - 0.45)));
-        this.cpuGK = createGoalkeeper(this.scene, "cpu", new Vector3(0, gkY, Arena.GOAL_LINE_Z - 0.45));
-
         this.ball = createBall(this.scene, new Vector3(0, 0.19, 0));
+        this.refillEnergy();
     }
 
-    /**
-     * Sistema de congelamento do goleiro: ele fica 100% imóvel e rígido —
-     * só desliza quando recebe uma reposição sancionada (mudança de posse ou
-     * 3º toque consecutivo do mesmo botão atacante), e nunca durante o
-     * movimento físico das peças (ROLLING).
-     */
-    private updateGoalkeepers(dt: number): void {
-        if (this.gameState === "ROLLING") return; // rígido com a bola em jogo
-        const GK_SPEED = 1.4; // m/s
-        for (const gk of [this.playerGK, this.cpuGK]) {
-            const targetX = this.gkRepositionTargets.get(gk);
-            if (targetX === undefined) continue;
-            const delta = targetX - gk.mesh.position.x;
-            if (Math.abs(delta) < 0.02) {
-                this.gkRepositionTargets.delete(gk);
-                continue;
-            }
-            const step = Math.max(-GK_SPEED * dt, Math.min(GK_SPEED * dt, delta));
-            gk.mesh.position.x += step;
-            gk.mesh.position.y = gk.home.y;
-            gk.mesh.position.z = gk.home.z;
+    // ── CONSERVAÇÃO DE ENERGIA ───────────────────────────────────────────────
+
+    /** Energia potencial inicial por massa: E(m) = 211.11 − 11.11·m (J). */
+    private static energyCapacity(mass: number): number {
+        return 211.11 - 11.11 * mass;
+    }
+
+    private energyOf(piece: Piece): number {
+        return this.pieceEnergy.get(piece) ?? MomentumSoccerGame.energyCapacity(piece.spec.mass);
+    }
+
+    /** Reabastece o tanque de todas as peças em campo (início de cada posse). */
+    private refillEnergy(): void {
+        for (const p of [...this.playerPieces, ...this.cpuPieces]) {
+            this.pieceEnergy.set(p, MomentumSoccerGame.energyCapacity(p.spec.mass));
         }
     }
 
     /**
-     * Concede ao goleiro uma reposição tática: alinhar-se com a reta
-     * Bola → Centro do próprio gol (interceptada na linha do goleiro).
+     * Impulso máximo que a energia restante da peça permite:
+     * K = J²/(2m) ≤ E  ⇒  J = √(2·m·E).
      */
-    private grantGKReposition(gk: Goalkeeper): void {
-        const ballPos = this.ball.mesh.position;
-        const goalZ = Math.sign(gk.home.z) * Arena.GOAL_LINE_Z;
-        let x = 0;
-        const denom = goalZ - ballPos.z;
-        if (Math.abs(denom) > 0.05) {
-            const t = (gk.home.z - ballPos.z) / denom;
-            x = ballPos.x * (1 - t);
-        }
-        const range = Arena.GOAL_W / 2 - gk.radius;
-        this.gkRepositionTargets.set(gk, Math.max(-range, Math.min(range, x)));
+    private energyImpulseCap(piece: Piece): number {
+        const energy = Math.max(this.energyOf(piece), 0);
+        return Math.sqrt(2 * piece.spec.mass * energy);
+    }
+
+    private isExhausted(piece: Piece): boolean {
+        return this.energyOf(piece) <= MomentumSoccerGame.ENERGY_EXHAUSTED;
     }
 
     private allBodies(): { mesh: Mesh; piece?: Piece }[] {
@@ -333,10 +321,7 @@ export class MomentumSoccerGame {
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
             this.teleport(p.mesh, p.home, p.aggregate);
         }
-        this.playerGK.mesh.position.copyFrom(this.playerGK.home);
-        this.cpuGK.mesh.position.copyFrom(this.cpuGK.home);
         this.teleport(this.ball.mesh, this.ball.home, this.ball.aggregate);
-        this.gkRepositionTargets.clear();
         this.pendingGoal = null;
         this.currentShot = null;
     }
@@ -369,16 +354,13 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * Mudança de posse: o novo time recebe 12 toques coletivos, os contadores
-     * individuais zeram e o goleiro do time que passou a defender ganha uma
-     * reposição tática na reta Bola → Centro do gol.
+     * Mudança de posse: o novo time recebe 12 toques coletivos e a energia
+     * potencial de todas as peças em campo é reabastecida (E = 211.11 − 11.11·m).
      */
     private changePossessionTo(team: Turn): void {
         this.possession = team;
         this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
-        this.streakPiece = null;
-        this.streakCount = 0;
-        this.grantGKReposition(team === "player" ? this.cpuGK : this.playerGK);
+        this.refillEnergy();
         this.enterTurnState();
     }
 
@@ -401,34 +383,16 @@ export class MomentumSoccerGame {
             this.changePossessionTo(opponent);
             return;
         }
-        // Infração: 4º lance consecutivo com o mesmo botão
-        if (shot.fourthTouch) {
-            this.showAlert(this.t("🚫 Quarto toque consecutivo! Posse perdida.", "🚫 Fourth consecutive touch! Possession lost."), "#FF6655");
-            this.changePossessionTo(opponent);
-            return;
-        }
 
         // Lance legal: consome 1 toque coletivo
         this.teamTouchesLeft--;
 
         let alert: [string, string] | null = null;
-        let alertColor = "#FFC34D";
 
-        // Passe para botão diferente: goleiro defensor permanece congelado
-        if (shot.changedButton && shot.ballTouched) {
-            alert = ["🥶 Goleiro congelado! Gol desprotegido!", "🥶 Goalkeeper frozen! Unguarded goal!"];
-            alertColor = "#7FDFFF";
-        }
         // Bola antes, adversário depois: legal, mas restam no máximo 3 toques
         if (shot.oppContactAfterBall) {
             this.teamTouchesLeft = Math.min(this.teamTouchesLeft, 3);
             alert = ["⚠️ Colisão com adversário! Turno reduzido para mais 3 toques!", "⚠️ Contact with opponent! Turn reduced to 3 more touches!"];
-            alertColor = "#FFC34D";
-        }
-
-        // 3º toque consecutivo do mesmo botão: goleiro defensor pode se reposicionar
-        if (this.streakCount === MomentumSoccerGame.MAX_PIECE_STREAK) {
-            this.grantGKReposition(shot.team === "player" ? this.cpuGK : this.playerGK);
         }
 
         // 12º toque sem gol: posse esgotada
@@ -438,28 +402,22 @@ export class MomentumSoccerGame {
             return;
         }
 
-        if (alert) this.showAlert(this.t(alert[0], alert[1]), alertColor);
+        if (alert) this.showAlert(this.t(alert[0], alert[1]), "#FFC34D");
         this.enterTurnState();
     }
 
-    /** Registra o disparo para a regra de 12 toques (streak + rastreamento). */
-    private trackShot(piece: Piece, team: Turn): void {
-        const fourthTouch = piece === this.streakPiece && this.streakCount >= MomentumSoccerGame.MAX_PIECE_STREAK;
-        const changedButton = this.streakPiece !== null && piece !== this.streakPiece;
-        if (piece === this.streakPiece) {
-            this.streakCount++;
-        } else {
-            // Botão diferente: zera os contadores individuais das outras peças
-            this.streakPiece = piece;
-            this.streakCount = 1;
-        }
+    /**
+     * Registra o disparo para a regra de 12 toques e deduz do tanque da peça
+     * a energia cinética gerada pelo lance: K = J²/(2m) = ½·m·v².
+     */
+    private trackShot(piece: Piece, team: Turn, impulse: number): void {
+        const kinetic = (impulse * impulse) / (2 * piece.spec.mass);
+        this.pieceEnergy.set(piece, this.energyOf(piece) - kinetic);
         this.currentShot = {
             piece, team,
             ballTouched: false,
             foul: false,
             oppContactAfterBall: false,
-            fourthTouch,
-            changedButton,
         };
     }
 
@@ -477,18 +435,30 @@ export class MomentumSoccerGame {
             camera: this.camera,
             maxImpulse: MomentumSoccerGame.MAX_IMPULSE,
             maxDrag: MomentumSoccerGame.MAX_DRAG,
-            impulseCap: () => this.kickoffActive
-                ? MomentumSoccerGame.KICKOFF_MAX_IMPULSE
-                : MomentumSoccerGame.MAX_IMPULSE,
+            // Teto dinâmico: a energia restante da peça limita K = ½·m·v²
+            // (e a saída de bola limita o momento a 2 kg·m/s)
+            impulseCap: (piece) => Math.min(
+                this.kickoffActive ? MomentumSoccerGame.KICKOFF_MAX_IMPULSE : MomentumSoccerGame.MAX_IMPULSE,
+                this.energyImpulseCap(piece)
+            ),
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
-            // Saída de bola: só o centroavante pode ser lançado
-            canSelectPiece: (piece) => !this.kickoffActive || piece === this.playerKickoffPiece,
-            onBlockedTap: () => {
-                this.showAlert(this.t(
-                    "⚽ Saída de bola: passe obrigatório com o centroavante!",
-                    "⚽ Kickoff: mandatory pass with the centre forward!"
-                ), "#FFC34D");
+            // Bloqueios de seleção: peça exaurida ou fora da saída de bola
+            canSelectPiece: (piece) =>
+                !this.isExhausted(piece) &&
+                (!this.kickoffActive || piece === this.playerKickoffPiece),
+            onBlockedTap: (piece) => {
+                if (this.kickoffActive && piece !== this.playerKickoffPiece) {
+                    this.showAlert(this.t(
+                        "⚽ Saída de bola: passe obrigatório com o centroavante!",
+                        "⚽ Kickoff: mandatory pass with the centre forward!"
+                    ), "#FFC34D");
+                } else {
+                    this.showAlert(this.t(
+                        "🚫 Peça sem energia! Escolha outro jogador!",
+                        "🚫 Piece out of energy! Pick another player!"
+                    ), "#FF6655");
+                }
             },
             onAimUpdate: (aim) => {
                 this.hintTxt.isVisible = false;
@@ -509,15 +479,15 @@ export class MomentumSoccerGame {
         this.hasShotOnce = true;
         this.hintTxt.isVisible = false;
         this.kickoffActive = false; // passe inicial dado: seleção liberada
-        this.trackShot(aim.piece, "player");
+        this.trackShot(aim.piece, "player", aim.impulse);
         this.enterState("ROLLING");
     }
 
     // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
 
     /**
-     * Corredor livre? Verifica a distância de cada peça e goleiro (exceto os
-     * excluídos) ao segmento no plano XZ, contra o raio do corpo em movimento.
+     * Corredor livre? Verifica a distância de cada peça (exceto as excluídas,
+     * goleiros incluídos) ao segmento no plano XZ, contra o raio em movimento.
      */
     private isCorridorBlocked(from: Vector3, to: Vector3, movingRadius: number, exclude: Mesh[]): boolean {
         const segX = to.x - from.x, segZ = to.z - from.z;
@@ -528,10 +498,6 @@ export class MomentumSoccerGame {
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
             if (exclude.includes(p.mesh)) continue;
             blockers.push({ x: p.mesh.position.x, z: p.mesh.position.z, radius: p.spec.radius });
-        }
-        for (const gk of [this.playerGK, this.cpuGK]) {
-            if (exclude.includes(gk.mesh)) continue;
-            blockers.push({ x: gk.mesh.position.x, z: gk.mesh.position.z, radius: gk.radius });
         }
 
         for (const blk of blockers) {
@@ -551,14 +517,13 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * CPU estratégica dentro da regra de 12 toques:
+     * CPU estratégica dentro da regra de 12 toques + conservação de energia:
      *  - Caminho da bola ao gol LIVRE (ou último toque coletivo): chute direto
-     *    com força máxima;
-     *  - Caminho BLOQUEADO com toques sobrando: passe suave para o companheiro
-     *    mais bem posicionado, preferindo trocar de botão para manter o
-     *    goleiro adversário congelado;
-     *  - Nunca seleciona o botão que já fez 3 toques consecutivos (evita a
-     *    infração do 4º toque).
+     *    com a força máxima que a energia da peça permitir;
+     *  - Caminho BLOQUEADO com toques sobrando: passe suave dosado para gastar
+     *    pouca energia cinética e preservar os botões (goleiro incluído);
+     *  - Nunca seleciona peça exaurida (energia ≤ 1 J); o goleiro de 10 kg é
+     *    um candidato comum — útil para rebater bolas na pequena área.
      */
     private cpuShoot(): void {
         if (this.kickoffActive) {
@@ -569,13 +534,11 @@ export class MomentumSoccerGame {
         const ballPos = this.ball.mesh.position;
         const playerGoal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
 
-        // Evita o 4º toque consecutivo
-        const candidates = this.cpuPieces.filter(
-            p => !(p === this.streakPiece && this.streakCount >= MomentumSoccerGame.MAX_PIECE_STREAK)
-        );
+        // Sem energia, sem lance: peças exauridas ficam de fora do turno
+        const candidates = this.cpuPieces.filter(p => !this.isExhausted(p));
         if (candidates.length === 0) return;
 
-        // O caminho da bola até o gol está livre (considerando o goleiro congelado)?
+        // O caminho da bola até o gol está livre?
         const goalPathClear = !this.isCorridorBlocked(ballPos, playerGoal, this.ball.radius, [this.ball.mesh]);
         let shootAtGoal = goalPathClear || this.teamTouchesLeft <= 1;
 
@@ -607,8 +570,6 @@ export class MomentumSoccerGame {
         const W_PROXIMITY = 0.6;
         const W_ALIGNMENT = 0.4;
         const BLOCKED_PENALTY = 0.25;
-        // Preferência por trocar de botão: mantém o goleiro adversário congelado
-        const CHANGE_BUTTON_BONUS = 0.12;
 
         let best: { piece: Piece; dir: Vector3; dist: number; align: number; score: number } | null = null;
 
@@ -629,7 +590,6 @@ export class MomentumSoccerGame {
             if (this.isPathBlocked(piece, piece.mesh.position, contact)) {
                 score *= BLOCKED_PENALTY; // colisão antes da bola seria falta
             }
-            if (piece !== this.streakPiece) score += CHANGE_BUTTON_BONUS;
             if (!best || score > best.score) {
                 best = { piece, dir, dist, align, score };
             }
@@ -638,10 +598,11 @@ export class MomentumSoccerGame {
 
         let impulse: number;
         if (shootAtGoal) {
-            // Chute direto ao gol com força máxima
+            // Chute direto ao gol com a força máxima disponível
             impulse = MomentumSoccerGame.MAX_IMPULSE;
         } else {
-            // Passe suave: a bola deve chegar ao companheiro, não atravessar o campo
+            // Passe suave dosado: a bola deve chegar ao companheiro gastando o
+            // mínimo de energia cinética (preserva o tanque da peça)
             const travel = Vector3.Distance(ballPos, target);
             const vBall = Math.min(1.2 + travel * 0.55, 3.2);
             const m = best.piece.spec.mass;
@@ -649,6 +610,8 @@ export class MomentumSoccerGame {
             const vPiece = vBall * (m + this.ball.mass) / (2 * m) + best.dist * 0.25;
             impulse = Math.min(m * Math.max(vPiece, 0.8), MomentumSoccerGame.MAX_IMPULSE);
         }
+        // A energia restante da peça limita o lance: K = J²/(2m) ≤ E
+        impulse = Math.min(impulse, this.energyImpulseCap(best.piece));
 
         // Erro humano simulado (menor em chutes bem alinhados)
         const noise = (Math.random() - 0.5) * 0.14 * (1.2 - Math.max(best.align, 0));
@@ -659,7 +622,7 @@ export class MomentumSoccerGame {
         this._tmp.set(dx * impulse, 0, dz * impulse);
         best.piece.aggregate.body.applyImpulse(this._tmp, best.piece.mesh.getAbsolutePosition());
 
-        this.trackShot(best.piece, "cpu");
+        this.trackShot(best.piece, "cpu", impulse);
         this.enterState("ROLLING");
     }
 
@@ -684,7 +647,7 @@ export class MomentumSoccerGame {
         piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
 
         this.kickoffActive = false;
-        this.trackShot(piece, "cpu");
+        this.trackShot(piece, "cpu", impulse);
         this.enterState("ROLLING");
     }
 
@@ -747,8 +710,6 @@ export class MomentumSoccerGame {
         const dynamicMeshes = new Set<string>([
             ...this.playerPieces.map(p => p.mesh.name),
             ...this.cpuPieces.map(p => p.mesh.name),
-            this.playerGK.mesh.name,
-            this.cpuGK.mesh.name,
             this.ball.mesh.name,
         ]);
 
@@ -805,8 +766,7 @@ export class MomentumSoccerGame {
 
         const otherPiece = (other as Mesh).metadata?.piece as Piece | undefined;
         const oppTeam: Turn = shot.team === "player" ? "cpu" : "player";
-        const oppGK = oppTeam === "player" ? this.playerGK : this.cpuGK;
-        if ((otherPiece && otherPiece.team === oppTeam) || other === oppGK.mesh) {
+        if (otherPiece && otherPiece.team === oppTeam) {
             if (shot.ballTouched) shot.oppContactAfterBall = true;
             else shot.foul = true;
         }
@@ -883,7 +843,6 @@ export class MomentumSoccerGame {
             this.stateTime += dt;
 
             this.updateCamera();
-            this.updateGoalkeepers(dt);
             this.updateFeedbackAnimations(dt);
             this.safetyFilter();
 
@@ -1090,7 +1049,7 @@ export class MomentumSoccerGame {
         // afastado do botão Home (canto inferior direito).
         this.aimPanel = new Rectangle("aimPanel");
         this.aimPanel.width = "196px";
-        this.aimPanel.height = "76px";
+        this.aimPanel.height = "104px";
         this.aimPanel.cornerRadius = 8;
         this.aimPanel.thickness = 1;
         this.aimPanel.color = "#FFD24A";
@@ -1106,8 +1065,21 @@ export class MomentumSoccerGame {
         this.aimTxt.color = "white";
         this.aimTxt.fontSize = 11;
         this.aimTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.aimTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimTxt.paddingLeft = "10px";
+        this.aimTxt.paddingTop = "7px";
         this.aimPanel.addControl(this.aimTxt);
+
+        // Tanque de energia da peça (E restante / gasto projetado / aviso)
+        this.aimEnergyTxt = new TextBlock("aimEnergyTxt", "");
+        this.aimEnergyTxt.color = "#7FFFD4";
+        this.aimEnergyTxt.fontSize = 11;
+        this.aimEnergyTxt.fontWeight = "bold";
+        this.aimEnergyTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.aimEnergyTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+        this.aimEnergyTxt.paddingLeft = "10px";
+        this.aimEnergyTxt.paddingBottom = "7px";
+        this.aimPanel.addControl(this.aimEnergyTxt);
 
         // Mensagem de gol
         this.goalTxt = new TextBlock("goal", "");
@@ -1119,7 +1091,7 @@ export class MomentumSoccerGame {
         this.goalTxt.isVisible = false;
         this.ui.addControl(this.goalTxt);
 
-        // Alertas da regra de 12 toques (faltas, turno esgotado, goleiro congelado)
+        // Alertas da regra de 12 toques (faltas, turno esgotado, peça sem energia)
         this.alertTxt = new TextBlock("alert", "");
         this.alertTxt.fontSize = 14;
         this.alertTxt.fontWeight = "bold";
@@ -1196,25 +1168,30 @@ export class MomentumSoccerGame {
 
     private updateAimPanel(aim: AimState): void {
         const name = this.currentLang === 0 ? aim.piece.spec.namePt : aim.piece.spec.nameEn;
-        // Contador individual: lances consecutivos já dados com esta peça
-        const streak = aim.piece === this.streakPiece ? this.streakCount : 0;
-        const streakLine = streak >= MomentumSoccerGame.MAX_PIECE_STREAK
-            ? this.t("⚠ 4º toque = perde a posse!", "⚠ 4th touch = lose possession!")
-            : this.t(`Toques da peça: ${streak}/3`, `Piece touches: ${streak}/3`);
 
         // Energia cinética e potência média do impacto (Δt de contato = 0,1 s)
         const kinetic = 0.5 * aim.piece.spec.mass * aim.velocity * aim.velocity;
         const power = kinetic / 0.1;
+        const energyLeft = this.energyOf(aim.piece);
 
         this.aimTxt.text =
-            `${name} (${streakLine})\n` +
+            `${name}\n` +
             `m = ${this.fmt(aim.piece.spec.mass, 1)} kg | v = ${this.fmt(aim.velocity, 1)} m/s\n` +
             `p = ${this.fmt(aim.impulse, 1)} kg·m/s\n` +
             `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W`;
+
+        // Tanque de energia: restante e consumo projetado do lance
+        const low = energyLeft - kinetic <= MomentumSoccerGame.ENERGY_LOW;
+        this.aimEnergyTxt.text =
+            this.t(`E. Restante: ${this.fmt(energyLeft, 1)} J`, `Energy left: ${this.fmt(energyLeft, 1)} J`) +
+            this.t(` | Gasto: -${this.fmt(kinetic, 1)} J`, ` | Spend: -${this.fmt(kinetic, 1)} J`) +
+            (low ? this.t("\n⚠ Energia Baixa!", "\n⚠ Low Energy!") : "");
+        this.aimEnergyTxt.color = low ? "#FF6655" : "#7FFFD4";
+
         this.aimPanel.isVisible = true;
     }
 
-    /** Aviso rápido central (faltas, turno esgotado, goleiro congelado). */
+    /** Aviso rápido central (faltas, turno esgotado, peça sem energia). */
     private showAlert(text: string, color: string): void {
         this.alertTxt.text = text;
         this.alertTxt.color = color;
