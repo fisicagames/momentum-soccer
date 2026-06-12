@@ -371,12 +371,49 @@ export class MomentumSoccerGame {
     /**
      * Mudança de posse: o novo time recebe 12 toques coletivos e a energia
      * potencial de todas as peças em campo é reabastecida (E = 211.11 − 11.11·m).
+     * Bola parada na própria área de meta dispara a reposição do goleiro.
      */
     private changePossessionTo(team: Turn): void {
         this.possession = team;
         this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
         this.refillEnergy();
+        if (!this.kickoffActive && this.ballNeedsGoalKick(team)) {
+            this.goalKickReposition(team);
+        }
         this.enterTurnState();
+    }
+
+    /**
+     * Tiro de meta interno: bola parada dentro da pequena área do time da
+     * posse, ou colada na própria linha de fundo ao lado das traves (evita
+     * gols contra fáceis e bolas presas no fundo).
+     */
+    private ballNeedsGoalKick(team: Turn): boolean {
+        const side = team === "player" ? -1 : 1;
+        const pos = this.ball.mesh.position;
+        const depth = pos.z * side; // profundidade no próprio campo (>0 = lado defendido)
+        const inSmallArea = depth >= Arena.GOAL_LINE_Z - Arena.AREA_D
+            && Math.abs(pos.x) <= Arena.AREA_W / 2;
+        const nearBackLine = depth >= Arena.GOAL_LINE_Z - 0.45;
+        return inSmallArea || nearBackLine;
+    }
+
+    /**
+     * Reposição automática do tiro de meta: bola no centro da linha frontal
+     * da pequena área e o goleiro logo atrás dela, alinhado para o chute de
+     * saída rumo ao campo adversário, ambos com velocidades zeradas.
+     */
+    private goalKickReposition(team: Turn): void {
+        const side = team === "player" ? -1 : 1;
+        const areaLineZ = side * (Arena.GOAL_LINE_Z - Arena.AREA_D);
+
+        this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
+
+        const goalkeeper = (team === "player" ? this.playerPieces : this.cpuPieces)[10];
+        const gkZ = areaLineZ + side * (this.ball.radius + goalkeeper.spec.radius + 0.12);
+        this.teleport(goalkeeper.mesh, this._tmp.set(0, goalkeeper.home.y, gkZ), goalkeeper.aggregate);
+
+        this.showAlert(this.t("⚽ Tiro de Meta — Reposição do Goleiro!", "⚽ Goal kick — Goalkeeper restart!"), "#CCCCCC");
     }
 
     /**
@@ -949,10 +986,10 @@ export class MomentumSoccerGame {
         const z = this.ball.mesh.position.z;
         if (Math.abs(z) <= Arena.GOAL_LINE_Z - 0.1) return false;
         const side = Math.sign(z);
-        this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, side * (Arena.GOAL_LINE_Z - 2.2)), this.ball.aggregate);
         this.currentShot = null;
-        this.showAlert(this.t("⚽ Tiro de meta", "⚽ Goal kick"), "#CCCCCC");
-        this.changePossessionTo(side > 0 ? "cpu" : "player"); // a defesa repõe a bola
+        // A defesa repõe a bola; a mudança de posse detecta a bola no fundo
+        // e executa a reposição do goleiro (goalKickReposition)
+        this.changePossessionTo(side > 0 ? "cpu" : "player");
         return true;
     }
 

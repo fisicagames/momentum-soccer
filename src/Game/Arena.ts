@@ -16,6 +16,9 @@ export class Arena {
     public static readonly FIELD_L = 15;    // comprimento (eixo Z)
     public static readonly GOAL_W = 3.0;    // abertura do gol
     public static readonly GOAL_DEPTH = 1.1;
+    /** Pequena área (área de meta): largura e profundidade. */
+    public static readonly AREA_W = Arena.GOAL_W + 1.6;
+    public static readonly AREA_D = 1.7;
     public static readonly GOAL_LINE_Z = Arena.FIELD_L / 2;
     public static readonly WALL_H = 1.4;
     public static readonly POST_H = 1.0;
@@ -123,8 +126,8 @@ export class Arena {
         mkLine(Arena.FIELD_W, 0.08, 0, Arena.GOAL_LINE_Z);
 
         // Pequenas áreas
-        const AREA_W = Arena.GOAL_W + 1.6;
-        const AREA_D = 1.7;
+        const AREA_W = Arena.AREA_W;
+        const AREA_D = Arena.AREA_D;
         [-1, 1].forEach(side => {
             const zEdge = side * (Arena.GOAL_LINE_Z - AREA_D);
             mkLine(AREA_W, 0.06, 0, zEdge);
