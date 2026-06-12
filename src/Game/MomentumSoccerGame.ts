@@ -1315,16 +1315,18 @@ export class MomentumSoccerGame {
         this.alertTxt.color = color;
         this.alertTxt.isVisible = true;
         if (this.alertTimer) clearTimeout(this.alertTimer);
+        // Tempo de leitura confortável para os avisos de infração
         this.alertTimer = setTimeout(() => {
             this.alertTimer = null;
             this.alertTxt.isVisible = false;
-        }, 2600);
+        }, 4200);
     }
 
     private updateScoreText(): void {
+        // Bandeiras dão clima de campeonato internacional ao confronto
         this.scoreTxt.text = this.t(
-            `VOCÊ  ${this.playerScore}  ×  ${this.cpuScore}  CPU`,
-            `YOU  ${this.playerScore}  ×  ${this.cpuScore}  CPU`
+            `🇧🇷 VOCÊ  ${this.playerScore}  ×  ${this.cpuScore}  CPU 🇩🇪`,
+            `🇧🇷 YOU  ${this.playerScore}  ×  ${this.cpuScore}  CPU 🇩🇪`
         );
     }
 
