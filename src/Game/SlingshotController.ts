@@ -1,3 +1,6 @@
+// Side-effect exigido por scene.createPickingRay/scene.pick no build de
+// produção (tree-shaking): registra Ray e os métodos de picking na Scene.
+import "@babylonjs/core/Culling/ray";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
