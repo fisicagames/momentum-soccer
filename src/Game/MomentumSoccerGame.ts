@@ -37,7 +37,7 @@ type Turn = "player" | "cpu";
  * Δp real reportado pelo Havok) e atrito como força externa (damping do feltro).
  */
 export class MomentumSoccerGame {
-    private static readonly MAX_IMPULSE = 13;  // kg·m/s por jogada (igual para todas as peças)
+    private static readonly MAX_IMPULSE = 18;  // kg·m/s por jogada (igual para todas as peças)
     private static readonly MAX_DRAG = 2.2;    // m de recuo para o impulso máximo
     private static readonly WIN_GOALS = 3;
     private static readonly SETTLE_SPEED = 0.18;
@@ -260,7 +260,7 @@ export class MomentumSoccerGame {
         this.playerGK = createGoalkeeper(this.scene, "player", new Vector3(0, gkY, -(Arena.GOAL_LINE_Z - 0.45)));
         this.cpuGK = createGoalkeeper(this.scene, "cpu", new Vector3(0, gkY, Arena.GOAL_LINE_Z - 0.45));
 
-        this.ball = createBall(this.scene, new Vector3(0, 0.31, 0));
+        this.ball = createBall(this.scene, new Vector3(0, 0.19, 0));
     }
 
     /**
@@ -893,7 +893,7 @@ export class MomentumSoccerGame {
         const z = this.ball.mesh.position.z;
         if (Math.abs(z) <= Arena.GOAL_LINE_Z - 0.1) return false;
         const side = Math.sign(z);
-        this.teleport(this.ball.mesh, this._tmp.set(0, 0.31, side * (Arena.GOAL_LINE_Z - 2.2)), this.ball.aggregate);
+        this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, side * (Arena.GOAL_LINE_Z - 2.2)), this.ball.aggregate);
         this.currentShot = null;
         this.showAlert(this.t("⚽ Tiro de meta", "⚽ Goal kick"), "#CCCCCC");
         this.changePossessionTo(side > 0 ? "cpu" : "player"); // a defesa repõe a bola

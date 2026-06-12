@@ -158,7 +158,7 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     aggregate.body.setMassProperties({ mass: spec.mass, inertia: new Vector3(0, inertiaY, 0) });
 
     // "Feltro liso": pouco amortecimento linear — as peças deslizam e ricocheteiam
-    aggregate.body.setLinearDamping(0.06);
+    aggregate.body.setLinearDamping(0.04);
     aggregate.body.setAngularDamping(0.9);
 
     // Permite teleporte por manipulação direta do mesh (resets e filtro de segurança)
@@ -212,7 +212,7 @@ export function createGoalkeeper(scene: Scene, team: Team, home: Vector3): Goalk
 }
 
 export function createBall(scene: Scene, home: Vector3): Ball {
-    const radius = 0.3;
+    const radius = 0.18; // proporção realista frente aos botões (era 0.30)
     const mass = 1.0;
 
     const mesh = MeshBuilder.CreateSphere("ball", { diameter: radius * 2, segments: 24 }, scene);
@@ -247,7 +247,7 @@ export function createBall(scene: Scene, home: Vector3): Ball {
         friction: 0.3,
         restitution: 0.8, // alta elasticidade conforme o design
     }, scene);
-    aggregate.body.setLinearDamping(0.08);
+    aggregate.body.setLinearDamping(0.05);
     aggregate.body.setAngularDamping(0.85);
     aggregate.body.disablePreStep = false;
 

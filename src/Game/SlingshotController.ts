@@ -43,8 +43,9 @@ export interface SlingshotOptions {
  *   o mesmo recuo no Velocista (m=1) projeta uma seta longa; no Tanque (m=8), curta.
  */
 export class SlingshotController {
-    /** Escala visual da seta dianteira (m de seta por m/s projetado). */
-    private static readonly ARROW_SCALE = 0.45;
+    /** Escala visual da seta dianteira (m de seta por m/s projetado),
+     *  ajustada ao impulso máximo para a seta caber na tela (J_max 13 → 18). */
+    private static readonly ARROW_SCALE = 0.33;
     private static readonly MIN_IMPULSE = 0.4;
 
     private scene: Scene;
