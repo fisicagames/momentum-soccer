@@ -77,6 +77,9 @@ export class SlingshotController {
     private readonly _tmp = Vector3.Zero();
     private readonly _quat = Quaternion.Identity();
 
+    /** Cancela a mira sem disparar (ponteiro perdido, saiu do canvas, blur). */
+    private readonly cancelHandler = () => this.cancelAim();
+
     constructor(scene: Scene, opts: SlingshotOptions) {
         this.scene = scene;
         this.opts = opts;
@@ -89,10 +92,28 @@ export class SlingshotController {
                 case PointerEventTypes.POINTERUP: this.onPointerUp(); break;
             }
         });
+
+        // Eventos que interrompem o arrasto sem um POINTERUP correspondente:
+        // a mira é cancelada e o painel/visuais são ocultados (failsafe)
+        const canvas = scene.getEngine().getRenderingCanvas()!;
+        canvas.addEventListener("pointerleave", this.cancelHandler);
+        canvas.addEventListener("pointercancel", this.cancelHandler);
+        window.addEventListener("blur", this.cancelHandler);
     }
 
     public get isAiming(): boolean {
         return this.aimingPiece !== null;
+    }
+
+    /** Encerra o arrasto atual sem disparo, restaurando câmera e HUD. */
+    private cancelAim(): void {
+        if (!this.aimingPiece) return;
+        this.hideAim();
+        const canvas = this.scene.getEngine().getRenderingCanvas()!;
+        this.opts.camera.attachControl(canvas, true);
+        this.aimingPiece = null;
+        this.aim = null;
+        this.opts.onAimEnd();
     }
 
     private buildAimMeshes(): void {
@@ -164,6 +185,14 @@ export class SlingshotController {
 
     private onPointerMove(): void {
         if (!this.aimingPiece) return;
+        // Com o pointer capture do arrasto, "pointerleave" não dispara: a
+        // saída do canvas é detectada pelas próprias coordenadas do ponteiro
+        const canvas = this.scene.getEngine().getRenderingCanvas()!;
+        if (this.scene.pointerX < 0 || this.scene.pointerY < 0 ||
+            this.scene.pointerX > canvas.clientWidth || this.scene.pointerY > canvas.clientHeight) {
+            this.cancelAim();
+            return;
+        }
         this.updateAim();
     }
 
@@ -263,6 +292,10 @@ export class SlingshotController {
 
     public dispose(): void {
         this.scene.onPointerObservable.remove(this.pointerObserver);
+        const canvas = this.scene.getEngine().getRenderingCanvas();
+        canvas?.removeEventListener("pointerleave", this.cancelHandler);
+        canvas?.removeEventListener("pointercancel", this.cancelHandler);
+        window.removeEventListener("blur", this.cancelHandler);
         this.pullLine.dispose();
         this.aimArrow.dispose();
         this.aimHead.dispose();

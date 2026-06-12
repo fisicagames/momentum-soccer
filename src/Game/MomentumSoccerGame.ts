@@ -525,6 +525,7 @@ export class MomentumSoccerGame {
     }
 
     private shoot(aim: AimState): void {
+        this.aimPanel.isVisible = false; // trava 1: some no instante do disparo
         if (this.gameState !== "PLAYER_AIM") return; // ex.: intervalo apitou durante a mira
         this._tmp.copyFrom(aim.direction).scaleInPlace(aim.impulse);
         // Impulso aplicado no centro de massa: transferência direta de momento (J = Δp)
@@ -899,6 +900,11 @@ export class MomentumSoccerGame {
             this.updateMatchClock(dt);
             this.updateFeedbackAnimations(dt);
             this.safetyFilter();
+
+            // Trava 2 (failsafe): o painel de telemetria só existe na mira
+            if (this.gameState !== "PLAYER_AIM" && this.aimPanel.isVisible) {
+                this.aimPanel.isVisible = false;
+            }
 
             switch (this.gameState) {
                 case "ROLLING": {
