@@ -411,10 +411,29 @@ export class MomentumSoccerGame {
         const side = team === "player" ? -1 : 1;
         const areaLineZ = side * (Arena.GOAL_LINE_Z - Arena.AREA_D);
 
-        this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
-
         const goalkeeper = (team === "player" ? this.playerPieces : this.cpuPieces).find(p => p.spec.id === "goalkeeper")!;
         const gkZ = areaLineZ + side * (this.ball.radius + goalkeeper.spec.radius + 0.12);
+
+        // ── EVITAR SOBREPOSIÇÃO FÍSICA (AFASTAMENTO LATERAL) ─────────────────
+        // Qualquer peça (exceto o próprio goleiro) que estiver obstruindo o
+        // corredor de chute central do tiro de meta é empurrada para as laterais.
+        const allPieces = [...this.playerPieces, ...this.cpuPieces];
+        for (const p of allPieces) {
+            if (p === goalkeeper) continue;
+
+            // Calcula a distância da peça até os pontos onde a bola e o goleiro serão teleportados
+            const distToBall = Vector3.Distance(p.mesh.position, this._tmp.set(0, p.mesh.position.y, areaLineZ));
+            const distToGk = Vector3.Distance(p.mesh.position, this._tmp.set(0, p.mesh.position.y, gkZ));
+
+            if (distToBall < 1.0 || distToGk < 1.0) {
+                // Afasta a peça lateralmente para as pontas (limpa o X mantendo o Y e o Z original)
+                const pushX = p.mesh.position.x >= 0 ? 1.5 : -1.5;
+                this.teleport(p.mesh, new Vector3(pushX, p.mesh.position.y, p.mesh.position.z), p.aggregate);
+            }
+        }
+
+        // Teleporta a bola e o goleiro de forma limpa e segura
+        this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
         this.teleport(goalkeeper.mesh, this._tmp.set(0, goalkeeper.home.y, gkZ), goalkeeper.aggregate);
 
         this.showAlert(this.t("⚽ Tiro de Meta — Reposição do Goleiro!", "⚽ Goal kick — Goalkeeper restart!"), "#CCCCCC");
