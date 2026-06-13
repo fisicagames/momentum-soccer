@@ -21,6 +21,7 @@ import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock";
 import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
+import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel";
 
 import { Arena } from "./Arena";
 import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId } from "./PieceFactory";
@@ -1210,35 +1211,36 @@ export class MomentumSoccerGame {
         topBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.ui.addControl(topBar);
 
-        // Container para o placar dividido
-        const scoreContainer = new Rectangle("scoreContainer");
-        scoreContainer.width = "280px";
-        scoreContainer.height = "30px";
-        scoreContainer.thickness = 0;
-        scoreContainer.top = "-30px"; // Ajustado para simetria vertical perfeita
-        scoreContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-        topBar.addControl(scoreContainer);
+        // Painel de Placar Horizontal com empacotamento justo (StackPanel)
+        // Garante simetria matemática absoluta ao redor do "×"
+        const scorePanel = new StackPanel("scorePanel");
+        scorePanel.isVertical = false; // Layout horizontal
+        scorePanel.height = "30px";
+        scorePanel.top = "-30px";
+        scorePanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        scorePanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        topBar.addControl(scorePanel);
 
         this.playerScoreTxt = new TextBlock("playerScore", "");
         this.playerScoreTxt.color = "white";
         this.playerScoreTxt.fontSize = 17;
         this.playerScoreTxt.fontWeight = "bold";
-        this.playerScoreTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        scoreContainer.addControl(this.playerScoreTxt);
+        this.playerScoreTxt.resizeToFit = true; // Ajusta a largura dinamicamente ao texto
+        scorePanel.addControl(this.playerScoreTxt);
 
-        this.vsTxt = new TextBlock("vs", "×");
+        this.vsTxt = new TextBlock("vs", "   ×   "); // Espaçamento simétrico idêntico de cada lado
         this.vsTxt.color = "white";
         this.vsTxt.fontSize = 17;
         this.vsTxt.fontWeight = "bold";
-        this.vsTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-        scoreContainer.addControl(this.vsTxt);
+        this.vsTxt.resizeToFit = true; // Ajusta a largura dinamicamente ao texto
+        scorePanel.addControl(this.vsTxt);
 
         this.cpuScoreTxt = new TextBlock("cpuScore", "");
         this.cpuScoreTxt.color = "white";
         this.cpuScoreTxt.fontSize = 17;
         this.cpuScoreTxt.fontWeight = "bold";
-        this.cpuScoreTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        scoreContainer.addControl(this.cpuScoreTxt);
+        this.cpuScoreTxt.resizeToFit = true; // Ajusta a largura dinamicamente ao texto
+        scorePanel.addControl(this.cpuScoreTxt);
 
         this.timerTxt = new TextBlock("timer", "");
         this.timerTxt.color = "#FFE9A8";
@@ -1490,8 +1492,8 @@ export class MomentumSoccerGame {
 
     private updateScoreText(): void {
         const isPT = this.currentLang === 0;
-        this.playerScoreTxt.text = isPT ? `🇧🇷 VOCÊ  ${this.playerScore}` : `🇧🇷 YOU  ${this.playerScore}`;
-        this.cpuScoreTxt.text = `${this.cpuScore}  CPU 🇩🇪`;
+        this.playerScoreTxt.text = isPT ? `VOCÊ  🇧🇷  ${this.playerScore}` : `YOU  🇧🇷  ${this.playerScore}`;
+        this.cpuScoreTxt.text = `${this.cpuScore}  🇩🇪  CPU`;
 
         // Destaca em verde brilhante (#39FF14) o time que está com a posse de bola ativa
         if (this.possession === "player") {
