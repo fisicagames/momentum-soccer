@@ -41,7 +41,7 @@ type Turn = "player" | "cpu";
 export class MomentumSoccerGame {
     private static readonly MAX_IMPULSE = 18;  // kg·m/s por jogada (igual para todas as peças)
     /** Saída de bola: momento máximo do passe inicial (recuo suave). */
-    private static readonly KICKOFF_MAX_IMPULSE = 0.9;
+    private static readonly KICKOFF_MAX_IMPULSE = 1.6;
     private static readonly MAX_DRAG = 2.2;    // m de recuo para o impulso máximo
     /** Duração de cada tempo da partida (2 tempos de 3 minutos). */
     private static readonly HALF_SECONDS = 180;
@@ -393,7 +393,7 @@ export class MomentumSoccerGame {
         const dz = dir.x * sin + dir.z * cos;
 
         // Impulso suave de saída (p = 1.8)
-        const impulse = MomentumSoccerGame.KICKOFF_MAX_IMPULSE * (0.7 + 0.3 * Math.random());
+        const impulse = MomentumSoccerGame.KICKOFF_MAX_IMPULSE;
         this._tmp.set(dx * impulse, 0, dz * impulse);
         piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
 
