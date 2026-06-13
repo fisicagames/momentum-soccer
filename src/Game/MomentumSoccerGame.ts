@@ -349,11 +349,8 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * Saída de bola tática: o centroavante do time da posse é posicionado
-     * ligeiramente à frente da bola (rumo ao campo adversário), a um raio de
-     * distância — o ângulo de chute direto ao gol fica impraticável e o
-     * primeiro lance vira naturalmente um recuo ou passe lateral. Só ele
-     * pode ser selecionado até o passe inicial sair.
+     * Saída de bola automática: posiciona os centroavantes e executa
+     * o passe de recuo simulado de forma imediata e autônoma.
      */
     private beginKickoff(team: Turn): void {
         this.goalTxt.isVisible = false;
@@ -364,13 +361,44 @@ export class MomentumSoccerGame {
         const sign = team === "player" ? 1 : -1;
         this.teleport(piece.mesh, this._tmp.set(0, piece.home.y, sign * gap), piece.aggregate);
 
-        // Centroavante adversário recua para fora do círculo central
-        // (raio 1.8): só o executor da saída fica dentro do círculo.
+        // Centroavante adversário recua para fora do círculo central (raio 1.8)
         const defender = oppPieces.find(p => p.spec.id === "center_forward")!;
         this.teleport(defender.mesh, this._tmp.set(0, defender.home.y, sign * 2.2), defender.aggregate);
 
         this.kickoffActive = true;
-        this.changePossessionTo(team);
+        this.possession = team;
+        this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
+        this.refillEnergy();
+        
+        // Executa o tiro de saída simulado de forma imediata e automática
+        this.executeAutomaticKickoff(team);
+    }
+
+    /**
+     * Realiza um passe automático e suave de recuo do centroavante para o seu próprio campo.
+     */
+    private executeAutomaticKickoff(team: Turn): void {
+        const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
+        const piece = ownPieces.find(p => p.spec.id === "center_forward")!;
+        
+        // Vetor da peça até a bola (aponta para trás/campo de defesa)
+        const dir = this.ball.mesh.position.subtract(piece.mesh.position);
+        dir.y = 0;
+        dir.normalize();
+
+        // Leve desvio lateral randômico para a bola não ir reta demais
+        const angle = (Math.random() - 0.5) * 0.6;
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const dx = dir.x * cos - dir.z * sin;
+        const dz = dir.x * sin + dir.z * cos;
+
+        // Impulso suave de saída (p = 1.8)
+        const impulse = 1.8;
+        this._tmp.set(dx * impulse, 0, dz * impulse);
+        piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
+
+        this.trackShot(piece, team, impulse);
+        this.enterState("ROLLING");
     }
 
     /**
@@ -453,25 +481,29 @@ export class MomentumSoccerGame {
         }
         const opponent: Turn = shot.team === "player" ? "cpu" : "player";
 
-        // Infração: tocou peça/goleiro adversário sem ter tocado a bola antes
+        // Infração: colisão ilegal antes de tocar na bola
         if (shot.foul) {
             this.showAlert(this.t("🚫 Colisão ilegal (falta)! Posse perdida.", "🚫 Illegal contact (foul)! Possession lost."), "#FF6655");
             this.changePossessionTo(opponent);
             return;
         }
 
-        // Lance legal: consome 1 toque coletivo
-        this.teamTouchesLeft--;
+        // Se o lance foi o kickoff automático, não consome toque (inicia o ataque com 12/12)
+        if (this.kickoffActive) {
+            this.kickoffActive = false; // Desativa o estado de kickoff após o primeiro repouso
+        } else {
+            this.teamTouchesLeft--;
+        }
 
         let alert: [string, string] | null = null;
 
-        // Bola antes, adversário depois: legal, mas restam no máximo 3 toques
+        // Bola primeiro, adversário depois: legal, mas reduz para no máximo mais 3 toques
         if (shot.oppContactAfterBall) {
             this.teamTouchesLeft = Math.min(this.teamTouchesLeft, 3);
             alert = ["⚠️ Colisão com adversário! Turno reduzido para mais 3 toques!", "⚠️ Contact with opponent! Turn reduced to 3 more touches!"];
         }
 
-        // 12º toque sem gol: posse esgotada
+        // 12º toque sem gol: posse perdida
         if (this.teamTouchesLeft <= 0) {
             this.showAlert(this.t("⏱ Turno esgotado! Posse perdida.", "⏱ Touches exhausted! Possession lost."), "#FF6655");
             this.changePossessionTo(opponent);
@@ -512,33 +544,17 @@ export class MomentumSoccerGame {
             camera: this.camera,
             maxImpulse: MomentumSoccerGame.MAX_IMPULSE,
             maxDrag: MomentumSoccerGame.MAX_DRAG,
-            // Teto dinâmico: a energia restante da peça limita K = ½·m·v²
-            // (e a saída de bola limita o momento a 2 kg·m/s)
-            impulseCap: (piece) => Math.min(
-                this.kickoffActive ? MomentumSoccerGame.KICKOFF_MAX_IMPULSE : MomentumSoccerGame.MAX_IMPULSE,
-                this.energyImpulseCap(piece)
-            ),
+            // O teto dinâmico agora é apenas a energia restante da peça
+            impulseCap: (piece) => Math.min(MomentumSoccerGame.MAX_IMPULSE, this.energyImpulseCap(piece)),
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
-            // Bloqueios de seleção: peça exaurida ou fora da saída de bola
-            canSelectPiece: (piece) => {
-                const kickoffPiece = this.playerPieces.find(p => p.spec.id === "center_forward");
-                return !this.isExhausted(piece) &&
-                    (!this.kickoffActive || piece === kickoffPiece);
-            },
+            // Seleção de peças simples: basta a peça não estar exaurida
+            canSelectPiece: (piece) => !this.isExhausted(piece),
             onBlockedTap: (piece) => {
-                const kickoffPiece = this.playerPieces.find(p => p.spec.id === "center_forward");
-                if (this.kickoffActive && piece !== kickoffPiece) {
-                    this.showAlert(this.t(
-                        "⚽ Saída de bola:\npasse obrigatório com o centroavante!",
-                        "⚽ Kickoff:\nmandatory pass with the centre forward!"
-                    ), "#FFC34D");
-                } else {
-                    this.showAlert(this.t(
-                        "🚫 Peça sem energia!\nEscolha outro jogador!",
-                        "🚫 Piece out of energy!\nPick another player!"
-                    ), "#FF6655");
-                }
+                this.showAlert(this.t(
+                    "🚫 Peça sem energia!\nEscolha outro jogador!",
+                    "🚫 Piece out of energy!\nPick another player!"
+                ), "#FF6655");
             },
             onAimUpdate: (aim) => {
                 this.hintTxt.isVisible = false;
@@ -608,11 +624,6 @@ export class MomentumSoccerGame {
      *    um candidato comum — útil para rebater bolas na pequena área.
      */
     private cpuShoot(): void {
-        if (this.kickoffActive) {
-            this.cpuKickoffPass();
-            return;
-        }
-
         const ballPos = this.ball.mesh.position;
         const playerGoal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
 
@@ -708,31 +719,7 @@ export class MomentumSoccerGame {
         this.enterState("ROLLING");
     }
 
-    /**
-     * Saída de bola da CPU: o centroavante (à frente da bola) recua o passe
-     * para o próprio campo com um leve desvio lateral.
-     */
-    private cpuKickoffPass(): void {
-        const piece = this.cpuPieces.find(p => p.spec.id === "center_forward")!;
-        const dir = this.ball.mesh.position.subtract(piece.mesh.position);
-        dir.y = 0;
-        dir.normalize();
-
-        const angle = (Math.random() - 0.5) * 0.7; // desvio lateral do recuo
-        const cos = Math.cos(angle), sin = Math.sin(angle);
-        const dx = dir.x * cos - dir.z * sin;
-        const dz = dir.x * sin + dir.z * cos;
-
-        // A CPU obedece ao mesmo teto da saída de bola (p ≤ 2 kg·m/s)
-        const impulse = Math.min(piece.spec.mass * 2.5, MomentumSoccerGame.KICKOFF_MAX_IMPULSE);
-        this._tmp.set(dx * impulse, 0, dz * impulse);
-        piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
-
-        this.kickoffActive = false;
-        this.trackShot(piece, "cpu", impulse);
-        this.enterState("ROLLING");
-    }
-
+    
     // ── PARTÍCULAS ───────────────────────────────────────────────────────────
 
     private buildParticles(): void {
@@ -1526,15 +1513,11 @@ export class MomentumSoccerGame {
 
         switch (this.gameState) {
             case "PLAYER_AIM":
-                this.turnTxt.text = this.kickoffActive
-                    ? this.t("⚽ Saída de bola — passe com o centroavante!", "⚽ Kickoff — pass with the centre forward!")
-                    : this.t(`👆 Sua posse — Toques: ${touches}`, `👆 Your possession — Touches: ${touches}`);
+                this.turnTxt.text = this.t(`👆 Sua posse — Toques: ${touches}`, `👆 Your possession — Touches: ${touches}`);
                 this.turnTxt.color = "#9FD4FF";
                 break;
             case "CPU_TURN":
-                this.turnTxt.text = this.kickoffActive
-                    ? this.t("📺 Saída de bola do adversário…", "📺 Opponent's kickoff…")
-                    : this.t(`📺 Posse do adversário — Toques: ${touches}`, `📺 Opponent's possession — Touches: ${touches}`);
+                this.turnTxt.text = this.t(`📺 Posse do adversário — Toques: ${touches}`, `📺 Opponent's possession — Touches: ${touches}`);
                 this.turnTxt.color = "#FFAA99";
                 break;
             case "ROLLING":
