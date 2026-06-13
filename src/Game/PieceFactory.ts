@@ -10,24 +10,47 @@ import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 
 export type Team = "player" | "cpu";
-export type ArchetypeId = "sprinter" | "striker" | "tank" | "goalkeeper";
 
-export interface ArchetypeSpec {
-    id: ArchetypeId;
+/** Posições táticas oficiais da formação 3-4-3 (+ goleiro). */
+export type PositionId =
+    | "goalkeeper"
+    | "left_back" | "center_back" | "right_back"
+    | "left_midfielder" | "volante" | "meia_armador" | "right_midfielder"
+    | "left_winger" | "center_forward" | "right_winger";
+
+export interface PositionSpec {
+    id: PositionId;
     namePt: string;
     nameEn: string;
     mass: number;     // kg
     radius: number;   // m
     height: number;   // m
-    specular: number; // brilho (Tank é metálico)
+    specular: number; // brilho (defensores são metálicos)
 }
 
-/** Arquétipos de botões: massas bem distintas para evidenciar v = p/m. */
-export const ARCHETYPES: Record<ArchetypeId, ArchetypeSpec> = {
-    sprinter:   { id: "sprinter",   namePt: "Velocista", nameEn: "Sprinter",   mass: 1.0,  radius: 0.25, height: 0.13, specular: 0.25 },
-    striker:    { id: "striker",    namePt: "Atacante",  nameEn: "Striker",    mass: 3.0,  radius: 0.31, height: 0.19, specular: 0.40 },
-    tank:       { id: "tank",       namePt: "Tanque",    nameEn: "Tank",       mass: 8.0,  radius: 0.40, height: 0.29, specular: 0.95 },
-    goalkeeper: { id: "goalkeeper", namePt: "Goleiro",   nameEn: "Goalkeeper", mass: 10.0, radius: 0.42, height: 0.26, specular: 0.95 },
+/**
+ * Posições do futebol real com massas proporcionais à função: defesa pesada
+ * (8 kg), meio-campo de apoio (3 kg), ataque veloz (1 kg) e goleiro de 10 kg.
+ */
+export const POSITIONS: Record<PositionId, PositionSpec> = {
+    // Goleiro
+    goalkeeper:       { id: "goalkeeper",       namePt: "Goleiro",          nameEn: "Goalkeeper",           mass: 10.0, radius: 0.42, height: 0.26, specular: 0.95 },
+
+    // Linha de defesa (zagueiros de 8 kg)
+    left_back:        { id: "left_back",        namePt: "Zagueiro Esquerdo", nameEn: "Left Center Back",   mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
+    center_back:      { id: "center_back",      namePt: "Zagueiro Central",  nameEn: "Center Back",        mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
+    right_back:       { id: "right_back",       namePt: "Zagueiro Direito",  nameEn: "Right Center Back",  mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
+
+    // Meio-campo (apoiadores de 3 kg)
+    left_midfielder:  { id: "left_midfielder",  namePt: "Ala Esquerdo",      nameEn: "Left Midfielder",      mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
+    volante:          { id: "volante",          namePt: "Volante",           nameEn: "Defensive Midfielder", mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
+    meia_armador:     { id: "meia_armador",     namePt: "Meia Armador",      nameEn: "Attacking Midfielder", mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
+    right_midfielder: { id: "right_midfielder", namePt: "Ala Direito",       nameEn: "Right Midfielder",     mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
+
+    // Ataque (velocistas de 1 kg)
+    left_winger:      { id: "left_winger",      namePt: "Ponta Esquerda",    nameEn: "Left Winger",   mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
+    center_forward:   { id: "center_forward",   namePt: "Centroavante",      nameEn: "Center Forward", mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
+    right_winger:     { id: "right_winger",     namePt: "Ponta Direita",     nameEn: "Right Winger",  mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
 };
 
 /** Cor exclusiva do goleiro (Amarelo Ouro), igual nos dois times. */
@@ -36,7 +59,7 @@ const GK_COLOR = new Color3(1.0, 0.78, 0.05);
 export interface Piece {
     mesh: Mesh;
     aggregate: PhysicsAggregate;
-    spec: ArchetypeSpec;
+    spec: PositionSpec;
     team: Team;
     /** Posição inicial (formação), usada em resets e no filtro de segurança. */
     home: Vector3;
@@ -50,13 +73,13 @@ export interface Ball {
     home: Vector3;
 }
 
-const TEAM_COLORS: Record<Team, { base: Color3; knob: Color3 }> = {
-    player: { base: new Color3(0.12, 0.35, 0.85), knob: new Color3(0.30, 0.55, 1.0) },
-    cpu:    { base: new Color3(0.80, 0.15, 0.12), knob: new Color3(1.0, 0.38, 0.30) },
+const TEAM_COLORS: Record<Team, { base: Color3; secondary: Color3; knob: Color3 }> = {
+    player: { base: new Color3(0.12, 0.35, 0.85), secondary: new Color3(0.95, 0.88, 0.65), knob: new Color3(0.30, 0.55, 1.0) },
+    cpu:    { base: new Color3(0.80, 0.15, 0.12), secondary: new Color3(0.92, 0.92, 0.90), knob: new Color3(1.0, 0.38, 0.30) },
 };
 
 /** Plano com a massa estampada no selo do botão (reforço visual do conceito). */
-function createMassLabel(scene: Scene, spec: ArchetypeSpec, team: Team): Mesh {
+function createMassLabel(scene: Scene, spec: PositionSpec, team: Team): Mesh {
     // Material compartilhado entre as peças do mesmo arquétipo/time (são 22 botões)
     const cached = scene.getMaterialByName(`massMat_${team}_${spec.id}`) as StandardMaterial | null;
     if (cached) {
@@ -118,11 +141,11 @@ function buttonLatheShape(radius: number, height: number): Vector3[] {
     ];
 }
 
-export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, home: Vector3): Piece {
-    const spec = ARCHETYPES[archetype];
-    // Goleiro usa a cor exclusiva; peças de linha usam a cor do time
-    const baseColor = archetype === "goalkeeper" ? GK_COLOR : TEAM_COLORS[team].base;
-    const name = `piece_${team}_${archetype}`;
+export function createPiece(scene: Scene, position: PositionId, team: Team, home: Vector3): Piece {
+    const spec = POSITIONS[position];
+    // Goleiro usa a cor exclusiva; peças de linha usam a cor primária do time
+    const baseColor = position === "goalkeeper" ? GK_COLOR : TEAM_COLORS[team].base;
+    const name = `piece_${team}_${position}`;
 
     // Corpo do botão: perfil de acrílico em superfície de revolução
     const base = MeshBuilder.CreateLathe(name, {
@@ -136,10 +159,24 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
     const baseMat = new StandardMaterial(name + "_mat", scene);
     baseMat.diffuseColor = baseColor;
     baseMat.specularColor = new Color3(spec.specular, spec.specular, spec.specular);
-    if (archetype === "goalkeeper") {
+    if (position === "goalkeeper") {
         baseMat.emissiveColor = new Color3(0.25, 0.18, 0.0); // leve brilho próprio
     }
     base.material = baseMat;
+
+    // Domo bicolor: disco central na cor secundária do time (anel externo = cor primária)
+    let dome: Mesh | null = null;
+    if (position !== "goalkeeper") {
+        const domeMat = new StandardMaterial(name + "_dome_mat", scene);
+        domeMat.diffuseColor = TEAM_COLORS[team].secondary;
+        domeMat.specularColor = new Color3(spec.specular * 0.8, spec.specular * 0.8, spec.specular * 0.8);
+        domeMat.backFaceCulling = false;
+        dome = MeshBuilder.CreateDisc(name + "_dome", { radius: spec.radius * 0.52, tessellation: 28 }, scene);
+        dome.rotation.x = Math.PI / 2;
+        dome.parent = base;
+        dome.position.y = spec.height * 0.45;
+        dome.material = domeMat;
+    }
 
     // Massa estampada na cavidade central (selo)
     const label = createMassLabel(scene, spec, team);
@@ -170,8 +207,9 @@ export function createPiece(scene: Scene, archetype: ArchetypeId, team: Team, ho
 
     const piece: Piece = { mesh: base, aggregate, spec, team, home: home.clone() };
 
-    // Metadata para picking do slingshot (inclui o selo decorativo)
+    // Metadata para picking do slingshot (inclui o domo bicolor e o selo)
     base.metadata = { piece };
+    if (dome) dome.metadata = { piece };
     label.metadata = { piece };
 
     return piece;

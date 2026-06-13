@@ -23,7 +23,7 @@ import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 
 import { Arena } from "./Arena";
-import { Piece, Ball, createPiece, createBall, ARCHETYPES, ArchetypeId } from "./PieceFactory";
+import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TIME" | "GAMEOVER";
@@ -95,8 +95,6 @@ export class MomentumSoccerGame {
     // Ativa no início do jogo e após cada gol: só o centroavante do time da
     // posse pode ser lançado; desativa assim que o passe inicial sai.
     private kickoffActive = false;
-    private playerKickoffPiece!: Piece;
-    private cpuKickoffPiece!: Piece;
 
     // Entidades (os goleiros são peças comuns, no índice 10 dos arrays)
     private playerPieces: Piece[] = [];
@@ -260,33 +258,29 @@ export class MomentumSoccerGame {
      * cobrindo todo o próprio lado do campo.
      */
     private buildTeams(): void {
-        const formation: { archetype: ArchetypeId; x: number; z: number }[] = [
+        const formation: { position: PositionId; x: number; z: number }[] = [
             // Defesa (3 zagueiros pesados)
-            { archetype: "tank",     x: -2.4, z: 5.8 },
-            { archetype: "tank",     x: 0,    z: 6.0 },
-            { archetype: "tank",     x: 2.4,  z: 5.8 },
+            { position: "left_back",        x: -2.4, z: 5.8 },
+            { position: "center_back",      x: 0,    z: 6.0 },
+            { position: "right_back",       x: 2.4,  z: 5.8 },
             // Meio-campo (4 apoiadores)
-            { archetype: "striker",  x: -3.0, z: 3.8 },
-            { archetype: "striker",  x: -1.0, z: 3.4 },
-            { archetype: "striker",  x: 1.0,  z: 3.4 },
-            { archetype: "striker",  x: 3.0,  z: 3.8 },
+            { position: "left_midfielder",  x: -3.0, z: 3.8 },
+            { position: "volante",          x: -1.0, z: 3.4 },
+            { position: "meia_armador",     x: 1.0,  z: 3.4 },
+            { position: "right_midfielder", x: 3.0,  z: 3.8 },
             // Ataque (3 pontas leves)
-            { archetype: "sprinter", x: -2.2, z: 1.4 },
-            { archetype: "sprinter", x: 0,    z: 1.0 },
-            { archetype: "sprinter", x: 2.2,  z: 1.4 },
+            { position: "left_winger",      x: -2.2, z: 1.4 },
+            { position: "center_forward",   x: 0,    z: 1.0 },
+            { position: "right_winger",     x: 2.2,  z: 1.4 },
             // Goleiro: peça comum de 10 kg, jogável como as demais
-            { archetype: "goalkeeper", x: 0, z: Arena.GOAL_LINE_Z - 0.45 },
+            { position: "goalkeeper", x: 0, z: Arena.GOAL_LINE_Z - 0.45 },
         ];
 
         for (const f of formation) {
-            const y = ARCHETYPES[f.archetype].height / 2 + 0.001;
-            this.playerPieces.push(createPiece(this.scene, f.archetype, "player", new Vector3(f.x, y, -f.z)));
-            this.cpuPieces.push(createPiece(this.scene, f.archetype, "cpu", new Vector3(-f.x, y, f.z)));
+            const y = POSITIONS[f.position].height / 2 + 0.001;
+            this.playerPieces.push(createPiece(this.scene, f.position, "player", new Vector3(f.x, y, -f.z)));
+            this.cpuPieces.push(createPiece(this.scene, f.position, "cpu", new Vector3(-f.x, y, f.z)));
         }
-
-        // Centroavante (velocista central, índice 8): executa a saída de bola
-        this.playerKickoffPiece = this.playerPieces[8];
-        this.cpuKickoffPiece = this.cpuPieces[8];
 
         this.ball = createBall(this.scene, new Vector3(0, 0.19, 0));
         this.refillEnergy();
@@ -333,6 +327,7 @@ export class MomentumSoccerGame {
 
     /** Reposiciona todos com velocidades zeradas (kickoff / pós-gol). */
     private resetFormation(): void {
+        this.goalTxt.isVisible = false;
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
             this.teleport(p.mesh, p.home, p.aggregate);
         }
@@ -354,14 +349,17 @@ export class MomentumSoccerGame {
      * pode ser selecionado até o passe inicial sair.
      */
     private beginKickoff(team: Turn): void {
-        const piece = team === "player" ? this.playerKickoffPiece : this.cpuKickoffPiece;
-        const gap = this.ball.radius + piece.spec.radius + piece.spec.radius; // folga = raio do botão
+        this.goalTxt.isVisible = false;
+        const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
+        const oppPieces = team === "player" ? this.cpuPieces : this.playerPieces;
+        const piece = ownPieces.find(p => p.spec.id === "center_forward")!;
+        const gap = this.ball.radius + piece.spec.radius + piece.spec.radius;
         const sign = team === "player" ? 1 : -1;
         this.teleport(piece.mesh, this._tmp.set(0, piece.home.y, sign * gap), piece.aggregate);
 
         // Centroavante adversário recua para fora do círculo central
         // (raio 1.8): só o executor da saída fica dentro do círculo.
-        const defender = team === "player" ? this.cpuKickoffPiece : this.playerKickoffPiece;
+        const defender = oppPieces.find(p => p.spec.id === "center_forward")!;
         this.teleport(defender.mesh, this._tmp.set(0, defender.home.y, sign * 2.2), defender.aggregate);
 
         this.kickoffActive = true;
@@ -409,7 +407,7 @@ export class MomentumSoccerGame {
 
         this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
 
-        const goalkeeper = (team === "player" ? this.playerPieces : this.cpuPieces)[10];
+        const goalkeeper = (team === "player" ? this.playerPieces : this.cpuPieces).find(p => p.spec.id === "goalkeeper")!;
         const gkZ = areaLineZ + side * (this.ball.radius + goalkeeper.spec.radius + 0.12);
         this.teleport(goalkeeper.mesh, this._tmp.set(0, goalkeeper.home.y, gkZ), goalkeeper.aggregate);
 
@@ -496,19 +494,22 @@ export class MomentumSoccerGame {
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
             // Bloqueios de seleção: peça exaurida ou fora da saída de bola
-            canSelectPiece: (piece) =>
-                !this.isExhausted(piece) &&
-                (!this.kickoffActive || piece === this.playerKickoffPiece),
+            canSelectPiece: (piece) => {
+                const kickoffPiece = this.playerPieces.find(p => p.spec.id === "center_forward");
+                return !this.isExhausted(piece) &&
+                    (!this.kickoffActive || piece === kickoffPiece);
+            },
             onBlockedTap: (piece) => {
-                if (this.kickoffActive && piece !== this.playerKickoffPiece) {
+                const kickoffPiece = this.playerPieces.find(p => p.spec.id === "center_forward");
+                if (this.kickoffActive && piece !== kickoffPiece) {
                     this.showAlert(this.t(
-                        "⚽ Saída de bola: passe obrigatório com o centroavante!",
-                        "⚽ Kickoff: mandatory pass with the centre forward!"
+                        "⚽ Saída de bola:\npasse obrigatório com o centroavante!",
+                        "⚽ Kickoff:\nmandatory pass with the centre forward!"
                     ), "#FFC34D");
                 } else {
                     this.showAlert(this.t(
-                        "🚫 Peça sem energia! Escolha outro jogador!",
-                        "🚫 Piece out of energy! Pick another player!"
+                        "🚫 Peça sem energia!\nEscolha outro jogador!",
+                        "🚫 Piece out of energy!\nPick another player!"
                     ), "#FF6655");
                 }
             },
@@ -685,7 +686,7 @@ export class MomentumSoccerGame {
      * para o próprio campo com um leve desvio lateral.
      */
     private cpuKickoffPass(): void {
-        const piece = this.cpuKickoffPiece;
+        const piece = this.cpuPieces.find(p => p.spec.id === "center_forward")!;
         const dir = this.ball.mesh.position.subtract(piece.mesh.position);
         dir.y = 0;
         dir.normalize();
@@ -1251,7 +1252,9 @@ export class MomentumSoccerGame {
         this.alertTxt.shadowBlur = 5;
         this.alertTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.alertTxt.top = "78px";
-        this.alertTxt.height = "30px";
+        this.alertTxt.height = "52px";
+        this.alertTxt.width = "90%";
+        this.alertTxt.textWrapping = true; // WordWrap
         this.alertTxt.isVisible = false;
         this.ui.addControl(this.alertTxt);
 
