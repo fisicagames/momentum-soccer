@@ -119,7 +119,10 @@ export class MomentumSoccerGame {
 
     // GUI
     private ui!: AdvancedDynamicTexture;
-    private scoreTxt!: TextBlock;
+    private playerScoreTxt!: TextBlock;
+    private vsTxt!: TextBlock;
+    private cpuScoreTxt!: TextBlock;
+    private touchesDotsTxt!: TextBlock;
     private timerTxt!: TextBlock;
     private turnTxt!: TextBlock;
     private goalTxt!: TextBlock;
@@ -127,6 +130,7 @@ export class MomentumSoccerGame {
     private alertTimer: ReturnType<typeof setTimeout> | null = null;
     private hintTxt!: TextBlock;
     private aimPanel!: Rectangle;
+    private aimPositionTxt!: TextBlock;
     private aimTxt!: TextBlock;
     private aimEnergyTxt!: TextBlock;
     private energyBarFill!: Rectangle;
@@ -260,18 +264,18 @@ export class MomentumSoccerGame {
     private buildTeams(): void {
         const formation: { position: PositionId; x: number; z: number }[] = [
             // Defesa (3 zagueiros pesados)
-            { position: "left_back",        x: -2.4, z: 5.8 },
-            { position: "center_back",      x: 0,    z: 6.0 },
-            { position: "right_back",       x: 2.4,  z: 5.8 },
+            { position: "left_back", x: -2.4, z: 5.8 },
+            { position: "center_back", x: 0, z: 6.0 },
+            { position: "right_back", x: 2.4, z: 5.8 },
             // Meio-campo (4 apoiadores)
-            { position: "left_midfielder",  x: -3.0, z: 3.8 },
-            { position: "volante",          x: -1.0, z: 3.4 },
-            { position: "meia_armador",     x: 1.0,  z: 3.4 },
-            { position: "right_midfielder", x: 3.0,  z: 3.8 },
+            { position: "left_midfielder", x: -3.0, z: 3.8 },
+            { position: "volante", x: -1.0, z: 3.4 },
+            { position: "meia_armador", x: 1.0, z: 3.4 },
+            { position: "right_midfielder", x: 3.0, z: 3.8 },
             // Ataque (3 pontas leves)
-            { position: "left_winger",      x: -2.2, z: 1.4 },
-            { position: "center_forward",   x: 0,    z: 1.0 },
-            { position: "right_winger",     x: 2.2,  z: 1.4 },
+            { position: "left_winger", x: -2.2, z: 1.4 },
+            { position: "center_forward", x: 0, z: 1.0 },
+            { position: "right_winger", x: 2.2, z: 1.4 },
             // Goleiro: peça comum de 10 kg, jogável como as demais
             { position: "goalkeeper", x: 0, z: Arena.GOAL_LINE_Z - 0.45 },
         ];
@@ -1122,33 +1126,56 @@ export class MomentumSoccerGame {
     private buildGUI(): void {
         this.ui = AdvancedDynamicTexture.CreateFullscreenUI("UI");
 
-        // Barra superior: placar, cronômetro da partida e indicador de turno
+        // Barra superior expandida para 92px para abrigar: Placar, Tempo, Mensagem e os 12 Pontinhos
         const topBar = new Rectangle("topBar");
         topBar.width = "100%";
-        topBar.height = "68px";
+        topBar.height = "92px"; // Expandido de 68px para 92px
         topBar.thickness = 0;
         topBar.background = "rgba(0,0,0,0.5)";
         topBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.ui.addControl(topBar);
 
-        this.scoreTxt = new TextBlock("score", "");
-        this.scoreTxt.color = "white";
-        this.scoreTxt.fontSize = 17;
-        this.scoreTxt.fontWeight = "bold";
-        this.scoreTxt.top = "-19px";
-        topBar.addControl(this.scoreTxt);
+        // Container para o placar dividido
+        const scoreContainer = new Rectangle("scoreContainer");
+        scoreContainer.width = "280px";
+        scoreContainer.height = "30px";
+        scoreContainer.thickness = 0;
+        scoreContainer.top = "-30px"; // Ajustado para simetria vertical perfeita
+        scoreContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        topBar.addControl(scoreContainer);
+
+        this.playerScoreTxt = new TextBlock("playerScore", "");
+        this.playerScoreTxt.color = "white";
+        this.playerScoreTxt.fontSize = 17;
+        this.playerScoreTxt.fontWeight = "bold";
+        this.playerScoreTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        scoreContainer.addControl(this.playerScoreTxt);
+
+        this.vsTxt = new TextBlock("vs", "×");
+        this.vsTxt.color = "white";
+        this.vsTxt.fontSize = 17;
+        this.vsTxt.fontWeight = "bold";
+        this.vsTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        scoreContainer.addControl(this.vsTxt);
+
+        this.cpuScoreTxt = new TextBlock("cpuScore", "");
+        this.cpuScoreTxt.color = "white";
+        this.cpuScoreTxt.fontSize = 17;
+        this.cpuScoreTxt.fontWeight = "bold";
+        this.cpuScoreTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        scoreContainer.addControl(this.cpuScoreTxt);
 
         this.timerTxt = new TextBlock("timer", "");
         this.timerTxt.color = "#FFE9A8";
         this.timerTxt.fontSize = 12;
         this.timerTxt.fontWeight = "bold";
-        this.timerTxt.top = "2px";
+        this.timerTxt.top = "-10px"; // Ajustado para simetria vertical perfeita
         topBar.addControl(this.timerTxt);
 
         this.turnTxt = new TextBlock("turn", "");
         this.turnTxt.color = "#9FD4FF";
         this.turnTxt.fontSize = 12;
-        this.turnTxt.top = "22px";
+        this.turnTxt.top = "10px"; // Ajustado para simetria vertical perfeita
         topBar.addControl(this.turnTxt);
 
         this.restartBtn = Button.CreateSimpleButton("restart", "↺");
@@ -1164,13 +1191,21 @@ export class MomentumSoccerGame {
         this.restartBtn.onPointerClickObservable.add(() => this.restartMatch());
         topBar.addControl(this.restartBtn);
 
+        // Indicador visual dos 12 toques (pontinhos ● e ○)
+        // Agora adicionado diretamente na topBar e perfeitamente posicionado na base dela
+        this.touchesDotsTxt = new TextBlock("touchesDots", "");
+        this.touchesDotsTxt.color = "#FFD24A";
+        this.touchesDotsTxt.fontSize = 13;
+        this.touchesDotsTxt.fontWeight = "bold";
+        this.touchesDotsTxt.top = "30px"; // Ajustado para simetria vertical perfeita
+        this.touchesDotsTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        topBar.addControl(this.touchesDotsTxt); // Vinculado à topBar!
+
         // Painel de telemetria da mira (m, v, p, K, P): fixo em screen-space no
-        // canto inferior esquerdo (layout retrato) — não obstrui o campo
-        // central, a trajetória do chute nem o dedo durante o arrasto, e fica
-        // afastado do botão Home (canto inferior direito).
+        // canto inferior esquerdo (layout retrato 9:16)
         this.aimPanel = new Rectangle("aimPanel");
         this.aimPanel.width = "212px";
-        this.aimPanel.height = "130px";
+        this.aimPanel.height = "146px"; // Altura expandida para abrigar a nova ordem limpa
         this.aimPanel.cornerRadius = 8;
         this.aimPanel.thickness = 1;
         this.aimPanel.color = "#FFD24A";
@@ -1182,9 +1217,17 @@ export class MomentumSoccerGame {
         this.aimPanel.isVisible = false;
         this.ui.addControl(this.aimPanel);
 
-        // Barra gráfica de energia (escala fixa 0–200 J) no topo do card:
-        // fundo translúcido = capacidade; verde = energia restante da peça;
-        // laranja = fatia que o lance atual converterá em energia cinética.
+        // Título: Nome da Posição do Jogador (CENTRALIZADO NO TOPO)
+        this.aimPositionTxt = new TextBlock("aimPosition", "");
+        this.aimPositionTxt.color = "white";
+        this.aimPositionTxt.fontSize = 12;
+        this.aimPositionTxt.fontWeight = "bold";
+        this.aimPositionTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        this.aimPositionTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.aimPositionTxt.top = "6px";
+        this.aimPanel.addControl(this.aimPositionTxt);
+
+        // Barra gráfica de energia (escala fixa 0–200 J)
         const barBg = new Rectangle("energyBarBg");
         barBg.width = `${MomentumSoccerGame.ENERGY_BAR_W}px`;
         barBg.height = "10px";
@@ -1192,7 +1235,7 @@ export class MomentumSoccerGame {
         barBg.cornerRadius = 4;
         barBg.background = "rgba(255,255,255,0.16)";
         barBg.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        barBg.top = "8px";
+        barBg.top = "26px"; // descido para dar espaço ao nome da posição
         this.aimPanel.addControl(barBg);
 
         this.energyBarFill = new Rectangle("energyBarFill");
@@ -1211,8 +1254,7 @@ export class MomentumSoccerGame {
         this.energyBarSpend.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         barBg.addControl(this.energyBarSpend);
 
-        // Energia Potencial restante e Trabalho projetado (W = ΔK), logo
-        // abaixo da barra gráfica
+        // Energia Potencial restante e Trabalho projetado (W = ΔK)
         this.aimEnergyTxt = new TextBlock("aimEnergyTxt", "");
         this.aimEnergyTxt.color = "#7FFFD4";
         this.aimEnergyTxt.fontSize = 11;
@@ -1220,17 +1262,17 @@ export class MomentumSoccerGame {
         this.aimEnergyTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimEnergyTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimEnergyTxt.paddingLeft = "10px";
-        this.aimEnergyTxt.paddingTop = "24px"; // abaixo da barra de energia
+        this.aimEnergyTxt.paddingTop = "42px"; // posicionado abaixo da barra gráfica
         this.aimPanel.addControl(this.aimEnergyTxt);
 
-        // Nome da peça ativa e grandezas do lance (m, v, p, K, P)
+        // Especificações dinâmicas adicionais (m, v, p, K, P)
         this.aimTxt = new TextBlock("aimTxt", "");
         this.aimTxt.color = "white";
         this.aimTxt.fontSize = 11;
         this.aimTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimTxt.paddingLeft = "10px";
-        this.aimTxt.paddingTop = "68px"; // abaixo do bloco de energia/trabalho
+        this.aimTxt.paddingTop = "82px"; // abaixo do bloco de energia/trabalho
         this.aimPanel.addControl(this.aimTxt);
 
         // Mensagem de gol
@@ -1243,7 +1285,7 @@ export class MomentumSoccerGame {
         this.goalTxt.isVisible = false;
         this.ui.addControl(this.goalTxt);
 
-        // Alertas da regra de 12 toques (faltas, turno esgotado, peça sem energia)
+        // Alertas da regra de 12 toques
         this.alertTxt = new TextBlock("alert", "");
         this.alertTxt.fontSize = 14;
         this.alertTxt.fontWeight = "bold";
@@ -1251,10 +1293,10 @@ export class MomentumSoccerGame {
         this.alertTxt.shadowColor = "rgba(0,0,0,0.9)";
         this.alertTxt.shadowBlur = 5;
         this.alertTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.alertTxt.top = "78px";
+        this.alertTxt.top = "102px"; // Ajustado para 102px para dar folga de 10px abaixo da topBar
         this.alertTxt.height = "52px";
         this.alertTxt.width = "90%";
-        this.alertTxt.textWrapping = true; // WordWrap
+        this.alertTxt.textWrapping = true; // WordWrap ativo para telas estreitas
         this.alertTxt.isVisible = false;
         this.ui.addControl(this.alertTxt);
 
@@ -1323,19 +1365,21 @@ export class MomentumSoccerGame {
     private updateAimPanel(aim: AimState): void {
         const name = this.currentLang === 0 ? aim.piece.spec.namePt : aim.piece.spec.nameEn;
 
+        // Centraliza e destaca o nome da posição no topo do card (caixa alta)
+        this.aimPositionTxt.text = name.toUpperCase();
+
         // Energia cinética e potência média do impacto (Δt de contato = 0,1 s)
         const kinetic = 0.5 * aim.piece.spec.mass * aim.velocity * aim.velocity;
         const power = kinetic / 0.1;
         const energyLeft = this.energyOf(aim.piece);
 
         this.aimTxt.text =
-            `${name}\n` +
             `m = ${this.fmt(aim.piece.spec.mass, 1)} kg | v = ${this.fmt(aim.velocity, 1)} m/s\n` +
             `p = ${this.fmt(aim.impulse, 1)} kg·m/s\n` +
             `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W`;
 
         // Teorema Trabalho-Energia Cinética: o arrasto realiza trabalho motor
-        // positivo (W = ΔK > 0), que sai do tanque e vira K do disparo
+        // positivo (W = ΔK > 0) para acelerar a peça. Exibido aqui como valor positivo.
         const low = energyLeft - kinetic <= MomentumSoccerGame.ENERGY_LOW;
         this.aimEnergyTxt.text =
             this.t(`Energia Potencial: ${this.fmt(energyLeft, 1)} J`, `Potential Energy: ${this.fmt(energyLeft, 1)} J`) + "\n" +
@@ -1370,11 +1414,18 @@ export class MomentumSoccerGame {
     }
 
     private updateScoreText(): void {
-        // Bandeiras dão clima de campeonato internacional ao confronto
-        this.scoreTxt.text = this.t(
-            `🇧🇷 VOCÊ  ${this.playerScore}  ×  ${this.cpuScore}  CPU 🇩🇪`,
-            `🇧🇷 YOU  ${this.playerScore}  ×  ${this.cpuScore}  CPU 🇩🇪`
-        );
+        const isPT = this.currentLang === 0;
+        this.playerScoreTxt.text = isPT ? `🇧🇷 VOCÊ  ${this.playerScore}` : `🇧🇷 YOU  ${this.playerScore}`;
+        this.cpuScoreTxt.text = `${this.cpuScore}  CPU 🇩🇪`;
+
+        // Destaca em verde brilhante (#39FF14) o time que está com a posse de bola ativa
+        if (this.possession === "player") {
+            this.playerScoreTxt.color = "#39FF14"; // Verde Brilhante
+            this.cpuScoreTxt.color = "white";
+        } else {
+            this.playerScoreTxt.color = "white";
+            this.cpuScoreTxt.color = "#39FF14"; // Verde Brilhante
+        }
     }
 
     /** Cronômetro regulamentar: "1º Tempo — 02:45" (MM:SS). */
@@ -1390,6 +1441,12 @@ export class MomentumSoccerGame {
 
     private updateTurnText(): void {
         const touches = `${this.teamTouchesLeft}/${MomentumSoccerGame.TEAM_TOUCHES}`;
+
+        // Atualiza a representação visual dos 12 toques coletivos (pontinhos horizontais)
+        const filledCount = Math.max(this.teamTouchesLeft, 0);
+        const emptyCount = Math.max(MomentumSoccerGame.TEAM_TOUCHES - filledCount, 0);
+        this.touchesDotsTxt.text = "● ".repeat(filledCount) + "○ ".repeat(emptyCount).trim();
+
         switch (this.gameState) {
             case "PLAYER_AIM":
                 this.turnTxt.text = this.kickoffActive
