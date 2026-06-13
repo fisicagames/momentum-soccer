@@ -75,6 +75,8 @@ export class MomentumSoccerGame {
     private lastTimerSecond = -1;
 
     // ── Regra de 12 toques ───────────────────────────────────────────────
+    // Rastreia o último time que tocou fisicamente na bola no lance atual
+    private lastTouchTeam: Turn | null = null;
     // Toques coletivos restantes do time com a posse
     private teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
     // Rastreamento físico do lance em andamento (classificado ao assentar)
@@ -467,6 +469,7 @@ export class MomentumSoccerGame {
     private trackShot(piece: Piece, team: Turn, impulse: number): void {
         const kinetic = (impulse * impulse) / (2 * piece.spec.mass);
         this.pieceEnergy.set(piece, this.energyOf(piece) - kinetic);
+        this.lastTouchTeam = team; // Inicializa o toque com o time que chutou
         this.currentShot = {
             piece, team,
             ballTouched: false,
@@ -820,14 +823,20 @@ export class MomentumSoccerGame {
 
         if (other === this.ball.mesh) {
             shot.ballTouched = true;
+            this.lastTouchTeam = shot.team; // o atirador tocou na bola
             return;
         }
 
         const otherPiece = (other as Mesh).metadata?.piece as Piece | undefined;
         const oppTeam: Turn = shot.team === "player" ? "cpu" : "player";
         if (otherPiece && otherPiece.team === oppTeam) {
-            if (shot.ballTouched) shot.oppContactAfterBall = true;
-            else shot.foul = true;
+            if (shot.ballTouched) {
+                shot.oppContactAfterBall = true;
+                // A bola bateu na peça adversária após o chute (desvio/ricochete)
+                this.lastTouchTeam = oppTeam; 
+            } else {
+                shot.foul = true;
+            }
         }
     }
 
@@ -990,17 +999,64 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * Bola parada atrás da linha de fundo sem gol (por cima do travessão ou
-     * ao lado do gol): tiro de meta — bola na pequena área, defesa recomeça.
+     * Resolve a bola saindo pela linha de fundo (excluindo a boca do gol):
+     *  - Se o último toque foi do ATACANTE: Tiro de Meta para o defensor.
+     *  - Se o último toque foi do DEFENSOR: Escanteio para o atacante.
      */
     private checkGoalKick(): boolean {
-        const z = this.ball.mesh.position.z;
-        if (Math.abs(z) <= Arena.GOAL_LINE_Z - 0.1) return false;
-        const side = Math.sign(z);
+        const pos = this.ball.mesh.position;
+        // Ajustado de -0.1 para -0.3 para compensar o raio da bola (0.18) e a colisão do muro de fundo
+        if (Math.abs(pos.z) <= Arena.GOAL_LINE_Z - 0.3) return false;
+
+
+        const side = Math.sign(pos.z); // +1 = linha de fundo da CPU, -1 = do jogador
+        const defendingTeam: Turn = side > 0 ? "cpu" : "player";
+        const attackingTeam: Turn = side > 0 ? "player" : "cpu";
+
         this.currentShot = null;
-        // A defesa repõe a bola; a mudança de posse detecta a bola no fundo
-        // e executa a reposição do goleiro (goalKickReposition)
-        this.changePossessionTo(side > 0 ? "cpu" : "player");
+
+        // Se por algum motivo não houver registro de toque, assume Tiro de Meta
+        const lastTouch = this.lastTouchTeam ?? attackingTeam;
+
+        if (lastTouch === attackingTeam) {
+            // ── TIRO DE META (Goal Kick) ─────────────────────────────────────
+            // Posse de bola passa para o time defensor, cobrado pelo goleiro
+            this.changePossessionTo(defendingTeam);
+        } else {
+            // ── ESCANTEIO (Corner Kick) ──────────────────────────────────────
+            // Posse continua com o atacante. Bola vai para o canto de saída.
+            const cornerX = Math.sign(pos.x) * (Arena.FIELD_W / 2 - 0.4);
+            const cornerZ = side * (Arena.GOAL_LINE_Z - 0.4);
+            const cornerPos = new Vector3(cornerX, 0.19, cornerZ);
+
+            // Teleporta a bola para a marca do escanteio
+            this.teleport(this.ball.mesh, cornerPos, this.ball.aggregate);
+
+            // Encontra a peça atacante mais próxima e posiciona atrás da bola para cobrar
+            const ownPieces = attackingTeam === "player" ? this.playerPieces : this.cpuPieces;
+            let nearestPiece = ownPieces[0];
+            let minDist = Infinity;
+            for (const p of ownPieces) {
+                if (p.spec.id === "goalkeeper") continue; // não usa o goleiro
+                const d = Vector3.DistanceSquared(p.mesh.position, cornerPos);
+                if (d < minDist) { minDist = d; nearestPiece = p; }
+            }
+
+            // Calcula o posicionamento da peça para cruzar em direção à área
+            const angle = Math.atan2(-cornerZ, -cornerX); // aponta para o centro
+            const pieceX = cornerX - Math.cos(angle) * (this.ball.radius + nearestPiece.spec.radius + 0.1);
+            const pieceZ = cornerZ - Math.sin(angle) * (this.ball.radius + nearestPiece.spec.radius + 0.1);
+            this.teleport(nearestPiece.mesh, new Vector3(pieceX, nearestPiece.home.y, pieceZ), nearestPiece.aggregate);
+
+            // Alerta e resete de toques (mantém ataque com 12 toques)
+            this.possession = attackingTeam;
+            this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
+            this.refillEnergy();
+            this.enterTurnState();
+
+            this.showAlert(this.t("🚩 Escanteio!", "🚩 Corner Kick!"), "#FFD24A");
+        }
+
         return true;
     }
 
