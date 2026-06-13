@@ -615,13 +615,12 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * CPU estratégica dentro da regra de 12 toques + conservação de energia:
-     *  - Caminho da bola ao gol LIVRE (ou último toque coletivo): chute direto
-     *    com a força máxima que a energia da peça permitir;
-     *  - Caminho BLOQUEADO com toques sobrando: passe suave dosado para gastar
-     *    pouca energia cinética e preservar os botões (goleiro incluído);
-     *  - Nunca seleciona peça exaurida (energia ≤ 1 J); o goleiro de 10 kg é
-     *    um candidato comum — útil para rebater bolas na pequena área.
+     * CPU inteligente e agressiva calibrada para a Joule Cup 2026:
+     *  - Se o caminho estiver livre, ou se restarem 4 ou menos toques coletivos,
+     *    ou se estiver em zona de perigo (distância < 7.5) e arriscar a sorte (50% de chance),
+     *    ela finaliza forte ao gol.
+     *  - Se estiver bloqueada, realiza passes rápidos e dinâmicos para companheiros
+     *    livres mais avançados, preferindo peças que já estejam próximas à bola.
      */
     private cpuShoot(): void {
         const ballPos = this.ball.mesh.position;
@@ -633,7 +632,11 @@ export class MomentumSoccerGame {
 
         // O caminho da bola até o gol está livre?
         const goalPathClear = !this.isCorridorBlocked(ballPos, playerGoal, this.ball.radius, [this.ball.mesh]);
-        let shootAtGoal = goalPathClear || this.teamTouchesLeft <= 1;
+        
+        // Decisão de chute agressivo: livre, fim de turno (<=4) ou chute surpresa oportuno
+        const distToGoal = Vector3.Distance(ballPos, playerGoal);
+        const randomShotRisk = distToGoal < 7.5 && Math.random() < 0.5;
+        let shootAtGoal = goalPathClear || this.teamTouchesLeft <= 4 || randomShotRisk;
 
         // Alvo da bola: o gol (chute) ou o companheiro mais bem posicionado (passe)
         let target = playerGoal.clone();
@@ -645,24 +648,26 @@ export class MomentumSoccerGame {
                 const dist = Vector3.Distance(matePos, ballPos);
                 if (dist < 0.9) continue; // já está colado na bola
                 const blocked = this.isCorridorBlocked(ballPos, matePos, this.ball.radius, [this.ball.mesh, mate.mesh]);
-                const advance = ballPos.z - matePos.z; // companheiro mais avançado rumo ao gol do jogador
-                const score = (blocked ? 0 : 1.5) + advance * 0.10 - dist * 0.06;
+                const advance = ballPos.z - matePos.z; // maior avanço rumo ao gol do jogador
+                
+                // Ponderação tática do companheiro: privilégio para linhas livres e avanço de campo
+                const score = (blocked ? 0 : 2.0) + advance * 0.15 - dist * 0.08;
                 if (score > bestMateScore) {
                     bestMateScore = score;
                     bestMate = mate;
                 }
             }
             if (bestMate) target = bestMate.mesh.position.clone();
-            else shootAtGoal = true; // sem opção de passe: tenta o chute
+            else shootAtGoal = true; // sem opção de passe livre: tenta o chute
         }
 
         const desired = target.subtract(ballPos);
         desired.y = 0;
         desired.normalize();
 
-        const W_PROXIMITY = 0.6;
-        const W_ALIGNMENT = 0.4;
-        const BLOCKED_PENALTY = 0.25;
+        const W_PROXIMITY = 0.75; // Aumentado para priorizar peças já posicionadas perto da bola
+        const W_ALIGNMENT = 0.25; // Alinhamento secundário
+        const BLOCKED_PENALTY = 0.20;
 
         let best: { piece: Piece; dir: Vector3; dist: number; align: number; score: number } | null = null;
 
@@ -675,7 +680,8 @@ export class MomentumSoccerGame {
             if (dist < 0.05) continue;
             dir.normalize();
 
-            const proximity = Math.exp(-dist / 3);
+            // Decaimento de proximidade mais agressivo (-dist / 1.8): penaliza severamente peças distantes
+            const proximity = Math.exp(-dist / 1.8);
             const align = Vector3.Dot(dir, desired);
             const alignment = (align + 1) / 2;
 
@@ -691,23 +697,23 @@ export class MomentumSoccerGame {
 
         let impulse: number;
         if (shootAtGoal) {
-            // Chute direto ao gol com a força máxima disponível
+            // Chute direto ao gol com força máxima disponível
             impulse = MomentumSoccerGame.MAX_IMPULSE;
         } else {
-            // Passe suave dosado: a bola deve chegar ao companheiro gastando o
-            // mínimo de energia cinética (preserva o tanque da peça)
+            // Passe rápido, firme e nítido (velocidade da bola de 2.2 a 4.5 m/s)
             const travel = Vector3.Distance(ballPos, target);
-            const vBall = Math.min(1.2 + travel * 0.55, 3.2);
+            const vBall = Math.min(2.2 + travel * 0.65, 4.5);
             const m = best.piece.spec.mass;
-            // Transferência aproximada de momento no impacto + perda na aproximação
+            // Velocidade mínima do botão elevada para 1.4 m/s para garantir toque firme
             const vPiece = vBall * (m + this.ball.mass) / (2 * m) + best.dist * 0.25;
-            impulse = Math.min(m * Math.max(vPiece, 0.8), MomentumSoccerGame.MAX_IMPULSE);
+            impulse = Math.min(m * Math.max(vPiece, 1.4), MomentumSoccerGame.MAX_IMPULSE);
         }
+        
         // A energia restante da peça limita o lance: K = J²/(2m) ≤ E
         impulse = Math.min(impulse, this.energyImpulseCap(best.piece));
 
         // Erro humano simulado (menor em chutes bem alinhados)
-        const noise = (Math.random() - 0.5) * 0.14 * (1.2 - Math.max(best.align, 0));
+        const noise = (Math.random() - 0.5) * 0.12 * (1.2 - Math.max(best.align, 0));
         const cos = Math.cos(noise), sin = Math.sin(noise);
         const dx = best.dir.x * cos - best.dir.z * sin;
         const dz = best.dir.x * sin + best.dir.z * cos;
