@@ -550,7 +550,7 @@ export class MomentumSoccerGame {
             canAim: () => this.gameState === "PLAYER_AIM",
             // Seleção de peças simples: basta a peça não estar exaurida
             canSelectPiece: (piece) => !this.isExhausted(piece),
-            onBlockedTap: (piece) => {
+            onBlockedTap: (_piece) => {
                 this.showAlert(this.t(
                     "🚫 Peça sem energia!\nEscolha outro jogador!",
                     "🚫 Piece out of energy!\nPick another player!"
