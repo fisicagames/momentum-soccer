@@ -937,10 +937,15 @@ export class MomentumSoccerGame {
                 case "ROLLING": {
                     const goal = this.detectGoal();
                     if (goal) { this.onGoal(goal); break; }
+                    
+                    // Detecção instantânea de linha de fundo (tiro de meta/escanteio)
+                    // Captura a bola no exato instante em que cruza a linha, antes de colidir no fundo e voltar
+                    if (this.checkGoalKick()) {
+                        break;
+                    }
+
                     if (this.stateTime > 0.7 && (this.maxBodySpeed() < MomentumSoccerGame.SETTLE_SPEED || this.stateTime > MomentumSoccerGame.ROLLING_TIMEOUT)) {
-                        // Bola morta atrás da linha → tiro de meta; senão,
-                        // classifica o lance pela regra de 12 toques
-                        if (!this.checkGoalKick()) this.resolveShot();
+                        this.resolveShot();
                     }
                     break;
                 }
@@ -1018,9 +1023,8 @@ export class MomentumSoccerGame {
      */
     private checkGoalKick(): boolean {
         const pos = this.ball.mesh.position;
-        // Ajustado de -0.1 para -0.3 para compensar o raio da bola (0.18) e a colisão do muro de fundo
+        // Gatilho de saída (7.2 no Z)
         if (Math.abs(pos.z) <= Arena.GOAL_LINE_Z - 0.3) return false;
-
 
         const side = Math.sign(pos.z); // +1 = linha de fundo da CPU, -1 = do jogador
         const defendingTeam: Turn = side > 0 ? "cpu" : "player";
@@ -1033,33 +1037,39 @@ export class MomentumSoccerGame {
 
         if (lastTouch === attackingTeam) {
             // ── TIRO DE META (Goal Kick) ─────────────────────────────────────
-            // Posse de bola passa para o time defensor, cobrado pelo goleiro
             this.changePossessionTo(defendingTeam);
         } else {
             // ── ESCANTEIO (Corner Kick) ──────────────────────────────────────
-            // Posse continua com o atacante. Bola vai para o canto de saída.
-            const cornerX = Math.sign(pos.x) * (Arena.FIELD_W / 2 - 0.4);
-            const cornerZ = side * (Arena.GOAL_LINE_Z - 0.4);
-            const cornerPos = new Vector3(cornerX, 0.19, cornerZ);
+            // Posse continua com o atacante.
 
-            // Teleporta a bola para a marca do escanteio
-            this.teleport(this.ball.mesh, cornerPos, this.ball.aggregate);
-
-            // Encontra a peça atacante mais próxima e posiciona atrás da bola para cobrar
+            // 1. Encontra a peça atacante mais próxima da saída da bola
             const ownPieces = attackingTeam === "player" ? this.playerPieces : this.cpuPieces;
             let nearestPiece = ownPieces[0];
             let minDist = Infinity;
             for (const p of ownPieces) {
                 if (p.spec.id === "goalkeeper") continue; // não usa o goleiro
-                const d = Vector3.DistanceSquared(p.mesh.position, cornerPos);
+                const d = Vector3.DistanceSquared(p.mesh.position, pos);
                 if (d < minDist) { minDist = d; nearestPiece = p; }
             }
 
-            // Calcula o posicionamento da peça para cruzar em direção à área
-            const angle = Math.atan2(-cornerZ, -cornerX); // aponta para o centro
-            const pieceX = cornerX - Math.cos(angle) * (this.ball.radius + nearestPiece.spec.radius + 0.1);
-            const pieceZ = cornerZ - Math.sin(angle) * (this.ball.radius + nearestPiece.spec.radius + 0.1);
-            this.teleport(nearestPiece.mesh, new Vector3(pieceX, nearestPiece.home.y, pieceZ), nearestPiece.aggregate);
+            // 2. Determina os limites máximos de segurança para o centro da peça cobradora
+            const marginX = Arena.FIELD_W / 2 - nearestPiece.spec.radius - 0.12;
+            const marginZ = Arena.GOAL_LINE_Z - nearestPiece.spec.radius - 0.12;
+
+            // 3. Posiciona a PEÇA de forma 100% segura no canto interno do campo (travada pelas paredes)
+            const pieceX = (Math.sign(pos.x) || 1) * marginX;
+            const pieceZ = side * marginZ;
+            const piecePos = new Vector3(pieceX, nearestPiece.home.y, pieceZ);
+            this.teleport(nearestPiece.mesh, piecePos, nearestPiece.aggregate);
+
+            // 4. Posiciona a BOLA projetada a partir da peça em direção ao centro do campo,
+            // garantindo a distância física exata (soma dos raios + folga) e impedindo sobreposições
+            const dirToCenter = new Vector3(-Math.sign(pieceX), 0, -Math.sign(pieceZ)).normalize();
+            const gap = this.ball.radius + nearestPiece.spec.radius + 0.12;
+            const ballPos = piecePos.add(dirToCenter.scale(gap));
+            ballPos.y = 0.19; // altura padrão da bola
+
+            this.teleport(this.ball.mesh, ballPos, this.ball.aggregate);
 
             // Alerta e resete de toques (mantém ataque com 12 toques)
             this.possession = attackingTeam;
