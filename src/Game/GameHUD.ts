@@ -241,6 +241,7 @@ export class GameHUD {
         this.goalPanel.thickness = 0;
         this.goalPanel.background = "rgba(10,10,32,0.88)"; // Fundo escuro premium
         this.goalPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        this.goalPanel.top = "-120px";
         this.goalPanel.isHitTestVisible = false;
         this.goalPanel.isVisible = false;
         this.goalPanel.zIndex = 110;
