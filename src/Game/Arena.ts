@@ -156,14 +156,9 @@ export class Arena {
         mkWall("wallLeft", T, sideLen, -(halfW + T / 2), 0);
         mkWall("wallRight", T, sideLen, halfW + T / 2, 0);
 
-        // Fundos, com abertura para a boca do gol
-        const segW = (Arena.FIELD_W - Arena.GOAL_W) / 2;
-        const segX = Arena.GOAL_W / 2 + segW / 2;
+        // Fundos, com abertura para a boca do gol (Sem os muros laterais invisíveis do fundo)
         [-1, 1].forEach(side => {
-            const z = side * (halfL + T / 2);
-            mkWall(`wallEndA_${side}`, segW, T, -segX, z);
-            mkWall(`wallEndB_${side}`, segW, T, segX, z);
-            // Caixa do gol: fundo e laterais
+            // Mantém a caixa física do gol (fundo e laterais para a bola bater na rede)
             mkWall(`goalBack_${side}`, Arena.GOAL_W + 2 * T, T, 0, side * (halfL + Arena.GOAL_DEPTH + T / 2));
             mkWall(`goalSideA_${side}`, T, Arena.GOAL_DEPTH, -(Arena.GOAL_W / 2 + T / 2), side * (halfL + Arena.GOAL_DEPTH / 2));
             mkWall(`goalSideB_${side}`, T, Arena.GOAL_DEPTH, Arena.GOAL_W / 2 + T / 2, side * (halfL + Arena.GOAL_DEPTH / 2));
@@ -220,7 +215,7 @@ export class Arena {
         // Rede simplificada: plano translúcido no fundo do gol
         const netMat = new StandardMaterial(`netMat_${side}`, scene);
         netMat.diffuseColor = new Color3(1, 1, 1);
-        netMat.alpha = 0.18;
+        netMat.alpha = 0.5;
         netMat.backFaceCulling = false;
         const net = MeshBuilder.CreatePlane(`net_${side}`, { width: Arena.GOAL_W, height: POST_H }, scene);
         net.position.set(0, POST_H / 2, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH));
