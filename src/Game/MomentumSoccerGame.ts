@@ -330,7 +330,8 @@ export class MomentumSoccerGame {
 
     /**
      * Realiza um passe automático e suave de recuo do centroavante para o seu próprio campo.
-     * Um pequeno delay de 60ms é usado para permitir que o Havok integre o teleporte antes de aplicar a força.
+     * Um pequeno delay de 60ms e um vetor local isolado garantem estabilidade absoluta
+     * contra interferências do ciclo de renderização da câmera.
      */
     private executeAutomaticKickoff(team: Team): void {
         const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
@@ -345,14 +346,16 @@ export class MomentumSoccerGame {
         const dx = dir.x * cos - dir.z * sin;
         const dz = dir.x * sin + dir.z * cos;
 
-        // Usa a variação randômica sobre a constante (entre 70% e 100% de 1.6 de momento)
-        const impulse = MomentumSoccerGame.KICKOFF_MAX_IMPULSE * (0.7 + 0.3 * Math.random());
-        this._tmp.set(dx * impulse, 0, dz * impulse);
+        // Força de saída direta puxada da constante estática (1.6) para um recuo firme
+        const impulse = MomentumSoccerGame.KICKOFF_MAX_IMPULSE;
+        
+        // Criamos um vetor local isolado para que o loop da câmera (updateCamera)
+        // não sobrescreva a direção do chute durante os 60ms de espera física
+        const impulseVector = new Vector3(dx * impulse, 0, dz * impulse);
 
-        // Um delay de 60ms (imperceptível) garante estabilidade absoluta na física do Havok
         setTimeout(() => {
             if (this.gameState === "ROLLING" || this.gameState === "PLAYER_AIM" || this.gameState === "CPU_TURN") {
-                piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
+                piece.aggregate.body.applyImpulse(impulseVector, piece.mesh.getAbsolutePosition());
             }
         }, 60);
 
