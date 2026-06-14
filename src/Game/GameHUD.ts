@@ -6,7 +6,7 @@ import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel";
-import { Team } from "./PieceFactory";
+import { Team } from "./PieceFactory"; // Unificado usando o tipo Team oficial
 
 export class GameHUD {
     private scene: Scene;
@@ -31,6 +31,9 @@ export class GameHUD {
     private energyBarSpend!: Rectangle;
 
     // Overlays, Alertas de Cartões e Avisos
+    private goalPanel!: Rectangle;       // Banner horizontal de transmissão de TV para Gols/Intervalo
+    private goalPanelLineTop!: Rectangle; // Linha de acabamento superior do banner
+    private goalPanelLineBottom!: Rectangle; // Linha de acabamento inferior do banner
     private goalTxt!: TextBlock;
     private alertPanel!: Rectangle; // Painel sólido de alto contraste para alertas
     private alertTxt!: TextBlock;
@@ -64,7 +67,7 @@ export class GameHUD {
     }
 
     private buildGUI(onRestart: () => void): void {
-        // Barra superior de 92px
+        // Barra superior de 92px (Z-Index baixo: 10)
         this.topBar = new Rectangle("topBar");
         this.topBar.width = "100%";
         this.topBar.height = "92px";
@@ -72,9 +75,10 @@ export class GameHUD {
         this.topBar.background = "rgba(0,0,0,0.5)";
         this.topBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.topBar.isHitTestVisible = false; // Permite cliques passarem para o 3D atrás dela
+        this.topBar.zIndex = 10;
         this.ui.addControl(this.topBar);
 
-        // Container para o placar em StackPanel (Garante simetria absoluta)
+        // Container para o placar em StackPanel (Garanto simetria absoluta)
         const scorePanel = new StackPanel("scorePanel");
         scorePanel.isVertical = false;
         scorePanel.height = "30px";
@@ -147,7 +151,7 @@ export class GameHUD {
         this.touchesDotsTxt.isHitTestVisible = false;
         this.topBar.addControl(this.touchesDotsTxt);
 
-        // Painel de telemetria da mira (m, v, p, K, P): fixo no canto inferior esquerdo
+        // Painel de telemetria da mira (Z-Index intermediário: 50)
         this.aimPanel = new Rectangle("aimPanel");
         this.aimPanel.width = "212px";
         this.aimPanel.height = "146px";
@@ -158,9 +162,10 @@ export class GameHUD {
         this.aimPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
         this.aimPanel.left = "12px";
-        this.aimPanel.top = "-30px";
+        this.aimPanel.top = "-20px"; // Mantido o valor calíbrado de -20px do jogador
         this.aimPanel.isVisible = false;
         this.aimPanel.isHitTestVisible = false; // Dados de telemetria não obstruem cliques da mira
+        this.aimPanel.zIndex = 50;
         this.ui.addControl(this.aimPanel);
 
         // Título da telemetria (CENTRALIZADO NO TOPO)
@@ -226,18 +231,47 @@ export class GameHUD {
         this.aimTxt.isHitTestVisible = false;
         this.aimPanel.addControl(this.aimTxt);
 
-        // GOL!
+        // Banner horizontal de comemoração de GOL/Intervalo (Estilo TV de Esportes)
+        // Z-Index superior absoluto de 110 para desenhar por cima de tudo
+        this.goalPanel = new Rectangle("goalPanel");
+        this.goalPanel.width = "100%";
+        this.goalPanel.height = "70px";
+        this.goalPanel.thickness = 0;
+        this.goalPanel.background = "rgba(10,10,32,0.88)"; // Fundo escuro premium
+        this.goalPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        this.goalPanel.isHitTestVisible = false;
+        this.goalPanel.isVisible = false;
+        this.goalPanel.zIndex = 110;
+        this.ui.addControl(this.goalPanel);
+
+        // Linha de acabamento superior do banner (dinâmica)
+        this.goalPanelLineTop = new Rectangle("goalPanelLineTop");
+        this.goalPanelLineTop.width = "100%";
+        this.goalPanelLineTop.height = "3px";
+        this.goalPanelLineTop.thickness = 0;
+        this.goalPanelLineTop.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.goalPanelLineTop.isHitTestVisible = false;
+        this.goalPanel.addControl(this.goalPanelLineTop);
+
+        // Linha de acabamento inferior do banner (dinâmica)
+        this.goalPanelLineBottom = new Rectangle("goalPanelLineBottom");
+        this.goalPanelLineBottom.width = "100%";
+        this.goalPanelLineBottom.height = "3px";
+        this.goalPanelLineBottom.thickness = 0;
+        this.goalPanelLineBottom.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+        this.goalPanelLineBottom.isHitTestVisible = false;
+        this.goalPanel.addControl(this.goalPanelLineBottom);
+
         this.goalTxt = new TextBlock("goal", "");
-        this.goalTxt.fontSize = 34;
+        this.goalTxt.fontSize = 28;
         this.goalTxt.fontWeight = "bold";
         this.goalTxt.color = "#FFD700";
         this.goalTxt.shadowColor = "rgba(0,0,0,0.9)";
         this.goalTxt.shadowBlur = 6;
         this.goalTxt.isHitTestVisible = false;
-        this.goalTxt.isVisible = false;
-        this.ui.addControl(this.goalTxt);
+        this.goalPanel.addControl(this.goalTxt);
 
-        // Card de Alerta Avançado (Alta Legibilidade) para faltas, advertências e cartões
+        // Card de Alerta Avançado (Z-Index alto: 100)
         this.alertPanel = new Rectangle("alertPanel");
         this.alertPanel.width = "90%";
         this.alertPanel.height = "56px";
@@ -249,6 +283,7 @@ export class GameHUD {
         this.alertPanel.top = "102px";
         this.alertPanel.isHitTestVisible = false; // Não bloqueia cliques
         this.alertPanel.isVisible = false;
+        this.alertPanel.zIndex = 100;
         this.ui.addControl(this.alertPanel);
 
         this.alertTxt = new TextBlock("alert", "");
@@ -373,11 +408,10 @@ export class GameHUD {
     public updateAimPanel(
         namePt: string, nameEn: string, mass: number, velocity: number, impulse: number,
         energyLeft: number, energyBarMax: number, energyLowThreshold: number,
-        yellowCards: number // Parâmetro adicionado para o controle de cartões
+        yellowCards: number
     ): void {
         const name = this.t(namePt, nameEn);
         const cardsStr = "🟨".repeat(yellowCards);
-        // Exibe o nome da posição em Caixa Alta e os cartões acumulados ao lado
         this.aimPositionTxt.text = `${name.toUpperCase()} ${cardsStr}`.trim();
 
         const kinetic = 0.5 * mass * velocity * velocity;
@@ -410,13 +444,19 @@ export class GameHUD {
     }
 
     public hideGoal(): void {
-        this.goalTxt.isVisible = false;
+        this.goalPanel.isVisible = false;
     }
 
-    public showGoal(text: string, color: string): void {
+    public showGoal(text: string, color: string, isPlayerScorer: boolean): void {
         this.goalTxt.text = text;
         this.goalTxt.color = color;
-        this.goalTxt.isVisible = true;
+        
+        // Ajusta as linhas estéticas dourada/vermelha do banner conforme o autor do gol
+        const lineColor = isPlayerScorer ? "#FFD24A" : "#FF5555";
+        this.goalPanelLineTop.background = lineColor;
+        this.goalPanelLineBottom.background = lineColor;
+
+        this.goalPanel.isVisible = true;
     }
 
     public showAlert(text: string, color: string): void {
@@ -489,7 +529,7 @@ export class GameHUD {
         this.ui.dispose();
         this.topBar.dispose();
         this.aimPanel.dispose();
-        this.goalTxt.dispose();
+        this.goalPanel.dispose();
         this.alertPanel.dispose();
         this.alertTxt.dispose();
         this.hintTxt.dispose();

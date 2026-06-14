@@ -383,6 +383,11 @@ export class MomentumSoccerGame {
         return inSmallArea || nearBackLine;
     }
 
+    /**
+     * Reposição automática do tiro de meta: bola no centro da linha frontal
+     * da pequena área e o goleiro logo atrás dela, alinhado para o chute de
+     * saída rumo ao campo adversário, ambos com velocidades zeradas.
+     */
     private goalKickReposition(team: Team): void {
         const side = team === "player" ? -1 : 1;
         const areaLineZ = side * (Arena.GOAL_LINE_Z - Arena.AREA_D);
@@ -407,7 +412,8 @@ export class MomentumSoccerGame {
         this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
         this.teleport(goalkeeper.mesh, this._tmp.set(0, goalkeeper.home.y, gkZ), goalkeeper.aggregate);
 
-        this.hud.showAlert(this.t("⚽ Tiro de Meta — Reposição do Goleiro!", "⚽ Goal kick — Goalkeeper restart!"), "#CCCCCC");
+        // Alerta simplificado para "Tiro de Meta!" sem o sufixo conforme solicitado
+        this.hud.showAlert(this.t("⚽ Tiro de Meta!", "⚽ Goal Kick!"), "#CCCCCC");
     }
 
     private resolveShot(): void {
@@ -1019,9 +1025,12 @@ export class MomentumSoccerGame {
         this.confettiSystem.manualEmitCount = scorer === "player" ? 300 : 80;
         if (this.impactSound) { this.impactSound.volume = 1; this.impactSound.play(); }
 
-        const goalText = scorer === "player" ? this.t("⚽ GOOOL!", "⚽ GOAL!") : this.t("😣 Gol do adversário!", "😣 Opponent scored!");
+        // Textos profissionais sem emojis lúdicos
+        const goalText = scorer === "player" ? this.t("GOL!", "GOAL!") : this.t("GOL DA CPU", "CPU GOAL");
         const goalColor = scorer === "player" ? "#FFD700" : "#FF7766";
-        this.hud.showGoal(goalText, goalColor);
+        
+        // CORREÇÃO: Passado o 3º argumento exigido pelo GameHUD (scorer === "player")
+        this.hud.showGoal(goalText, goalColor, scorer === "player");
 
         // ── EFEITO AMORTECEDOR DE REDE (Havok) ──────────────────────────────────
         // Zera as forças e eleva o damping para 5.0 (age como um freio fluido)
@@ -1063,10 +1072,12 @@ export class MomentumSoccerGame {
         }
     }
 
+    /** Fim do 1º tempo: intervalo sob o novo banner de transmissão, reset da formação e troca do kickoff. */
     private endHalf(): void {
         if (this.half === 1) {
-            const halfText = this.t("⏸ Fim do 1º Tempo\n— Intervalo —", "⏸ End of 1st Half\n— Break —");
-            this.hud.showGoal(halfText, "#9FD4FF");
+            // Texto limpo e profissional de TV (sem emojis) e adição do 3º argumento (true) para o banner dourado
+            const halfText = this.t("INTERVALO", "HALF-TIME");
+            this.hud.showGoal(halfText, "#9FD4FF", true);
             this.enterState("HALF_TIME");
 
             setTimeout(() => {
