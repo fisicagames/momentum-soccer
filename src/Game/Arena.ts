@@ -200,18 +200,6 @@ export class Arena {
             pointB: new Vector3(0, (Arena.GOAL_W + POST_D) / 2, 0),
         }, scene);
 
-        // "Teto da rede": colisor invisível sobre a caixa do gol na altura do
-        // travessão — bola que passa por cima da trave cai na rede e rola para
-        // fora, sem nunca entrar no volume do gatilho de gol por cima.
-        const roof = MeshBuilder.CreateBox(`goalRoof_${side}`, {
-            width: Arena.GOAL_W + 0.6, height: 0.1, depth: Arena.GOAL_DEPTH + 0.3,
-        }, scene);
-        roof.position.set(0, POST_H + 0.05, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH / 2));
-        roof.isVisible = false;
-        roof.isPickable = false;
-        new PhysicsAggregate(roof, PhysicsShapeType.BOX,
-            { mass: 0, friction: 0.3, restitution: 0.3 }, scene);
-
         // Rede translúcida tridimensional completa (Fundo, Laterais e Teto)
         const netMat = new StandardMaterial(`netMat_${side}`, scene);
         netMat.diffuseColor = new Color3(1, 1, 1);
