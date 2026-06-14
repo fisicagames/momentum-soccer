@@ -849,16 +849,30 @@ export class MomentumSoccerGame {
         return goal;
     }
 
+    /**
+     * Resolve a bola saindo pela linha de fundo com atraso dramático (cinematográfico):
+     *  - Se o último toque foi do ATACANTE: Tiro de Meta para o defensor após 1.5s.
+     *  - Se o último toque foi do DEFENSOR: Escanteio para o atacante após 1.5s.
+     */
     private checkGoalKick(): boolean {
-        if (this.isEndlineSequenceActive) return true;
+        if (this.isEndlineSequenceActive) return true; // já está rodando a cena de vôo livre
 
         const pos = this.ball.mesh.position;
+
+        // REGRA DE SEGURANÇA: Se a bola estiver indo em direção à boca do gol (abaixo do travessão 
+        // e horizontalmente entre as traves), ignore a saída de campo e deixe-a rolar para marcar o gol.
+        const isPotentialGoal = Math.abs(pos.x) < (Arena.GOAL_W / 2 - 0.05) && pos.y < Arena.POST_H;
+        if (isPotentialGoal) return false;
+
+        // Gatilho de saída: 7.2 no Z (apenas para bolas que vão para fora/chutes errados)
         if (Math.abs(pos.z) <= Arena.GOAL_LINE_Z - 0.3) return false;
 
-        const side = Math.sign(pos.z);
+        this.isEndlineSequenceActive = true;
+        this.currentShot = null;
+
+        const side = Math.sign(pos.z); // +1 = linha de fundo da CPU, -1 = do jogador
         const defendingTeam: Team = side > 0 ? "cpu" : "player";
         const attackingTeam: Team = side > 0 ? "player" : "cpu";
-        this.currentShot = null;
 
         const lastTouch = this.lastTouchTeam ?? attackingTeam;
 
