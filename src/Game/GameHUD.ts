@@ -35,7 +35,7 @@ export class GameHUD {
     private alertPanel!: Rectangle; // Painel sólido de alto contraste para alertas
     private alertTxt!: TextBlock;
     private hintTxt!: TextBlock;
-    private alertTimer: ReturnType<typeof setTimeout> | null = null;
+    private alertTimer: any = null;
 
     // Pool de textos flutuantes de impacto (Δp)
     private floatTexts: { tb: TextBlock; life: number }[] = [];
@@ -158,7 +158,7 @@ export class GameHUD {
         this.aimPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
         this.aimPanel.left = "12px";
-        this.aimPanel.top = "-80px";
+        this.aimPanel.top = "-30px";
         this.aimPanel.isVisible = false;
         this.aimPanel.isHitTestVisible = false; // Dados de telemetria não obstruem cliques da mira
         this.ui.addControl(this.aimPanel);
@@ -421,13 +421,20 @@ export class GameHUD {
 
     public showAlert(text: string, color: string): void {
         this.alertTxt.text = text;
-        this.alertPanel.color = color; // Cor da borda muda dinamicamente (Amarelo ou Vermelho)
+        this.alertPanel.color = color; // Muda a borda de acordo com o nível do aviso (amarelo ou vermelho)
         this.alertPanel.isVisible = true;
-        if (this.alertTimer) clearTimeout(this.alertTimer);
-        this.alertTimer = setTimeout(() => {
+
+        // Limpa de forma segura qualquer temporizador ativo no escopo do navegador
+        if (this.alertTimer) {
+            window.clearTimeout(this.alertTimer);
+            this.alertTimer = null;
+        }
+
+        // Registra o novo temporizador forçando o uso do escopo global window
+        this.alertTimer = window.setTimeout(() => {
             this.alertTimer = null;
             this.alertPanel.isVisible = false;
-        }, 4500); // 4.5 segundos de exibição confortável
+        }, 4500); // 4.5 segundos de exibição legível
     }
 
     public showHint(hasShotOnce: boolean): void {
