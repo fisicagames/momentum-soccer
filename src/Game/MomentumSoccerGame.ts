@@ -281,6 +281,10 @@ export class MomentumSoccerGame {
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
             this.teleport(p.mesh, p.home, p.aggregate);
         }
+        
+        // Garante a restauração do amortecimento padrão da bola (0.05) para o reinício do jogo
+        this.ball.aggregate.body.setLinearDamping(0.05);
+
         this.teleport(this.ball.mesh, this.ball.home, this.ball.aggregate);
         this.pendingGoal = null;
         this.currentShot = null;
@@ -932,6 +936,7 @@ export class MomentumSoccerGame {
         else this.cpuScore++;
         this.updateScoreText();
 
+        // Festa proporcional à conquista
         this.confettiSystem.emitter = this.ball.mesh.position.clone();
         this.confettiSystem.manualEmitCount = scorer === "player" ? 300 : 80;
         if (this.impactSound) { this.impactSound.volume = 1; this.impactSound.play(); }
@@ -939,6 +944,13 @@ export class MomentumSoccerGame {
         const goalText = scorer === "player" ? this.t("⚽ GOOOL!", "⚽ GOAL!") : this.t("😣 Gol do adversário!", "😣 Opponent scored!");
         const goalColor = scorer === "player" ? "#FFD700" : "#FF7766";
         this.hud.showGoal(goalText, goalColor);
+
+        // ── EFEITO AMORTECEDOR DE REDE (Havok) ──────────────────────────────────
+        // Zera as forças e eleva o damping para 5.0 (age como um freio fluido)
+        // fazendo a bola perder toda a energia cinética e repousar mansamente na rede.
+        this.ball.aggregate.body.setLinearVelocity(Vector3.ZeroReadOnly);
+        this.ball.aggregate.body.setAngularVelocity(Vector3.ZeroReadOnly);
+        this.ball.aggregate.body.setLinearDamping(5.0);
 
         this.currentShot = null;
         this.enterState("GOAL_PAUSE");
