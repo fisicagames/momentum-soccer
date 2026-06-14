@@ -963,13 +963,24 @@ export class MomentumSoccerGame {
         const ballOutX = pos.x;
 
         if (lastTouch === attackingTeam) {
+            // ── TIRO DE META (Goal Kick) ─────────────────────────────────────
             this.hud.showAlert(this.t("⚽ Tiro de Meta!", "⚽ Goal Kick!"), "#CCCCCC");
 
             setTimeout(() => {
                 this.isEndlineSequenceActive = false;
-                if (this.gameState !== "GOAL_PAUSE") return;
-                this.changePossessionTo(defendingTeam);
-            }, 1500);
+                if (this.gameState !== "GOAL_PAUSE") return; // failsafe caso dê reset no meio
+
+                // Configura as variáveis de posse do defensor ANTES do reposicionamento
+                this.possession = defendingTeam;
+                this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
+                this.refillEnergy();
+
+                // Executa a reposição física do goleiro diretamente (garante o posicionamento
+                // na pequena área, neutralizando o teleporte indesejado do safetyFilter)
+                this.goalKickReposition(defendingTeam);
+
+                this.enterTurnState();
+            }, 1500); // 1.5 segundos de vôo livre assistido pela câmera
         } else {
             this.hud.showAlert(this.t("🚩 Escanteio!", "🚩 Corner Kick!"), "#FFD24A");
 
