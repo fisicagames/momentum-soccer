@@ -212,15 +212,38 @@ export class Arena {
         new PhysicsAggregate(roof, PhysicsShapeType.BOX,
             { mass: 0, friction: 0.3, restitution: 0.3 }, scene);
 
-        // Rede simplificada: plano translúcido no fundo do gol
+        // Rede translúcida tridimensional completa (Fundo, Laterais e Teto)
         const netMat = new StandardMaterial(`netMat_${side}`, scene);
         netMat.diffuseColor = new Color3(1, 1, 1);
-        netMat.alpha = 0.5;
+        netMat.alpha = 0.22; // Opacidade de 0.22 impede o esbranquiçamento e mantém o gol legível
         netMat.backFaceCulling = false;
-        const net = MeshBuilder.CreatePlane(`net_${side}`, { width: Arena.GOAL_W, height: POST_H }, scene);
-        net.position.set(0, POST_H / 2, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH));
-        net.material = netMat;
-        net.isPickable = false;
+
+        // 1. Rede do Fundo (Plano YZ)
+        const netBack = MeshBuilder.CreatePlane(`net_${side}`, { width: Arena.GOAL_W, height: POST_H }, scene);
+        netBack.position.set(0, POST_H / 2, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH));
+        netBack.material = netMat;
+        netBack.isPickable = false;
+
+        // 2. Rede Lateral Esquerda (Rotacionado em Y)
+        const netLeft = MeshBuilder.CreatePlane(`netLeft_${side}`, { width: Arena.GOAL_DEPTH, height: POST_H }, scene);
+        netLeft.rotation.y = Math.PI / 2;
+        netLeft.position.set(-Arena.GOAL_W / 2, POST_H / 2, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH / 2));
+        netLeft.material = netMat;
+        netLeft.isPickable = false;
+
+        // 3. Rede Lateral Direita (Rotacionado em Y)
+        const netRight = MeshBuilder.CreatePlane(`netRight_${side}`, { width: Arena.GOAL_DEPTH, height: POST_H }, scene);
+        netRight.rotation.y = Math.PI / 2;
+        netRight.position.set(Arena.GOAL_W / 2, POST_H / 2, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH / 2));
+        netRight.material = netMat;
+        netRight.isPickable = false;
+
+        // 4. Rede do Teto/Parte Superior (Rotacionado em X)
+        const netTop = MeshBuilder.CreatePlane(`netTop_${side}`, { width: Arena.GOAL_W, height: Arena.GOAL_DEPTH }, scene);
+        netTop.rotation.x = Math.PI / 2;
+        netTop.position.set(0, POST_H, side * (Arena.GOAL_LINE_Z + Arena.GOAL_DEPTH / 2));
+        netTop.material = netMat;
+        netTop.isPickable = false;
 
         // Aplica material aos postes (após criação)
         scene.meshes
