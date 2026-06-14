@@ -6,7 +6,7 @@ import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel";
-import { Team } from "./PieceFactory"; // Unificado usando o tipo Team oficial
+import { Team } from "./PieceFactory";
 
 export class GameHUD {
     private scene: Scene;
@@ -30,8 +30,9 @@ export class GameHUD {
     private energyBarFill!: Rectangle;
     private energyBarSpend!: Rectangle;
 
-    // Overlays e Avisos
+    // Overlays, Alertas de Cartões e Avisos
     private goalTxt!: TextBlock;
+    private alertPanel!: Rectangle; // Painel sólido de alto contraste para alertas
     private alertTxt!: TextBlock;
     private hintTxt!: TextBlock;
     private alertTimer: ReturnType<typeof setTimeout> | null = null;
@@ -70,6 +71,7 @@ export class GameHUD {
         this.topBar.thickness = 0;
         this.topBar.background = "rgba(0,0,0,0.5)";
         this.topBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.topBar.isHitTestVisible = false; // Permite cliques passarem para o 3D atrás dela
         this.ui.addControl(this.topBar);
 
         // Container para o placar em StackPanel (Garante simetria absoluta)
@@ -79,6 +81,7 @@ export class GameHUD {
         scorePanel.top = "-30px";
         scorePanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         scorePanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        scorePanel.isHitTestVisible = false;
         this.topBar.addControl(scorePanel);
 
         this.playerScoreTxt = new TextBlock("playerScore", "");
@@ -86,6 +89,7 @@ export class GameHUD {
         this.playerScoreTxt.fontSize = 17;
         this.playerScoreTxt.fontWeight = "bold";
         this.playerScoreTxt.resizeToFit = true;
+        this.playerScoreTxt.isHitTestVisible = false;
         scorePanel.addControl(this.playerScoreTxt);
 
         this.vsTxt = new TextBlock("vs", "   ×   ");
@@ -93,6 +97,7 @@ export class GameHUD {
         this.vsTxt.fontSize = 17;
         this.vsTxt.fontWeight = "bold";
         this.vsTxt.resizeToFit = true;
+        this.vsTxt.isHitTestVisible = false;
         scorePanel.addControl(this.vsTxt);
 
         this.cpuScoreTxt = new TextBlock("cpuScore", "");
@@ -100,6 +105,7 @@ export class GameHUD {
         this.cpuScoreTxt.fontSize = 17;
         this.cpuScoreTxt.fontWeight = "bold";
         this.cpuScoreTxt.resizeToFit = true;
+        this.cpuScoreTxt.isHitTestVisible = false;
         scorePanel.addControl(this.cpuScoreTxt);
 
         this.timerTxt = new TextBlock("timer", "");
@@ -107,12 +113,14 @@ export class GameHUD {
         this.timerTxt.fontSize = 12;
         this.timerTxt.fontWeight = "bold";
         this.timerTxt.top = "-10px";
+        this.timerTxt.isHitTestVisible = false;
         this.topBar.addControl(this.timerTxt);
 
         this.turnTxt = new TextBlock("turn", "");
         this.turnTxt.color = "#9FD4FF";
         this.turnTxt.fontSize = 12;
         this.turnTxt.top = "10px";
+        this.turnTxt.isHitTestVisible = false;
         this.topBar.addControl(this.turnTxt);
 
         this.restartBtn = Button.CreateSimpleButton("restart", "↺");
@@ -125,16 +133,18 @@ export class GameHUD {
         this.restartBtn.thickness = 0;
         this.restartBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
         this.restartBtn.left = "-8px";
+        this.restartBtn.isHitTestVisible = true; // Botão precisa registrar o clique!
         this.restartBtn.onPointerClickObservable.add(onRestart);
         this.topBar.addControl(this.restartBtn);
 
-        // Indicador visual dos 12 toques adicionado na topBar
+        // Indicador visual dos 12 toques
         this.touchesDotsTxt = new TextBlock("touchesDots", "");
         this.touchesDotsTxt.color = "#FFD24A";
         this.touchesDotsTxt.fontSize = 13;
         this.touchesDotsTxt.fontWeight = "bold";
         this.touchesDotsTxt.top = "30px";
         this.touchesDotsTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        this.touchesDotsTxt.isHitTestVisible = false;
         this.topBar.addControl(this.touchesDotsTxt);
 
         // Painel de telemetria da mira (m, v, p, K, P): fixo no canto inferior esquerdo
@@ -150,6 +160,7 @@ export class GameHUD {
         this.aimPanel.left = "12px";
         this.aimPanel.top = "-80px";
         this.aimPanel.isVisible = false;
+        this.aimPanel.isHitTestVisible = false; // Dados de telemetria não obstruem cliques da mira
         this.ui.addControl(this.aimPanel);
 
         // Título da telemetria (CENTRALIZADO NO TOPO)
@@ -160,6 +171,7 @@ export class GameHUD {
         this.aimPositionTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         this.aimPositionTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimPositionTxt.top = "6px";
+        this.aimPositionTxt.isHitTestVisible = false;
         this.aimPanel.addControl(this.aimPositionTxt);
 
         const barBg = new Rectangle("energyBarBg");
@@ -170,6 +182,7 @@ export class GameHUD {
         barBg.background = "rgba(255,255,255,0.16)";
         barBg.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         barBg.top = "26px";
+        barBg.isHitTestVisible = false;
         this.aimPanel.addControl(barBg);
 
         this.energyBarFill = new Rectangle("energyBarFill");
@@ -178,6 +191,7 @@ export class GameHUD {
         this.energyBarFill.cornerRadius = 4;
         this.energyBarFill.background = "#37D67A";
         this.energyBarFill.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.energyBarFill.isHitTestVisible = false;
         barBg.addControl(this.energyBarFill);
 
         this.energyBarSpend = new Rectangle("energyBarSpend");
@@ -186,6 +200,7 @@ export class GameHUD {
         this.energyBarSpend.cornerRadius = 4;
         this.energyBarSpend.background = "#FF8A3D";
         this.energyBarSpend.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.energyBarSpend.isHitTestVisible = false;
         barBg.addControl(this.energyBarSpend);
 
         // Bloco de Energia Potencial e Trabalho
@@ -197,6 +212,7 @@ export class GameHUD {
         this.aimEnergyTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimEnergyTxt.paddingLeft = "10px";
         this.aimEnergyTxt.paddingTop = "42px";
+        this.aimEnergyTxt.isHitTestVisible = false;
         this.aimPanel.addControl(this.aimEnergyTxt);
 
         // Especificações físicas (m, v, p, K, P)
@@ -207,6 +223,7 @@ export class GameHUD {
         this.aimTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.aimTxt.paddingLeft = "10px";
         this.aimTxt.paddingTop = "82px";
+        this.aimTxt.isHitTestVisible = false;
         this.aimPanel.addControl(this.aimTxt);
 
         // GOL!
@@ -216,23 +233,31 @@ export class GameHUD {
         this.goalTxt.color = "#FFD700";
         this.goalTxt.shadowColor = "rgba(0,0,0,0.9)";
         this.goalTxt.shadowBlur = 6;
+        this.goalTxt.isHitTestVisible = false;
         this.goalTxt.isVisible = false;
         this.ui.addControl(this.goalTxt);
 
-        // Alertas
+        // Card de Alerta Avançado (Alta Legibilidade) para faltas, advertências e cartões
+        this.alertPanel = new Rectangle("alertPanel");
+        this.alertPanel.width = "90%";
+        this.alertPanel.height = "56px";
+        this.alertPanel.cornerRadius = 8;
+        this.alertPanel.thickness = 2;
+        this.alertPanel.color = "#FFC34D";
+        this.alertPanel.background = "rgba(10,10,30,0.88)"; // Fundo escuro de alto contraste
+        this.alertPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.alertPanel.top = "102px";
+        this.alertPanel.isHitTestVisible = false; // Não bloqueia cliques
+        this.alertPanel.isVisible = false;
+        this.ui.addControl(this.alertPanel);
+
         this.alertTxt = new TextBlock("alert", "");
-        this.alertTxt.fontSize = 14;
+        this.alertTxt.fontSize = 13;
         this.alertTxt.fontWeight = "bold";
-        this.alertTxt.color = "#FFC34D";
-        this.alertTxt.shadowColor = "rgba(0,0,0,0.9)";
-        this.alertTxt.shadowBlur = 5;
-        this.alertTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.alertTxt.top = "102px";
-        this.alertTxt.height = "52px";
-        this.alertTxt.width = "90%";
+        this.alertTxt.color = "white"; // Fonte branca de alta leitura sobre o fundo escuro
         this.alertTxt.textWrapping = true;
-        this.alertTxt.isVisible = false;
-        this.ui.addControl(this.alertTxt);
+        this.alertTxt.isHitTestVisible = false;
+        this.alertPanel.addControl(this.alertTxt);
 
         // Dica
         this.hintTxt = new TextBlock("hint", "");
@@ -243,6 +268,7 @@ export class GameHUD {
         this.hintTxt.shadowBlur = 4;
         this.hintTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
         this.hintTxt.paddingBottom = "26px";
+        this.hintTxt.isHitTestVisible = false;
         this.ui.addControl(this.hintTxt);
 
         for (let i = 0; i < 4; i++) {
@@ -252,6 +278,7 @@ export class GameHUD {
             tb.shadowColor = "rgba(0,0,0,0.9)";
             tb.shadowBlur = 4;
             tb.isVisible = false;
+            tb.isHitTestVisible = false;
             this.ui.addControl(tb);
             this.floatTexts.push({ tb, life: 0 });
         }
@@ -345,10 +372,13 @@ export class GameHUD {
 
     public updateAimPanel(
         namePt: string, nameEn: string, mass: number, velocity: number, impulse: number,
-        energyLeft: number, energyBarMax: number, energyLowThreshold: number
+        energyLeft: number, energyBarMax: number, energyLowThreshold: number,
+        yellowCards: number // Parâmetro adicionado para o controle de cartões
     ): void {
         const name = this.t(namePt, nameEn);
-        this.aimPositionTxt.text = name.toUpperCase();
+        const cardsStr = "🟨".repeat(yellowCards);
+        // Exibe o nome da posição em Caixa Alta e os cartões acumulados ao lado
+        this.aimPositionTxt.text = `${name.toUpperCase()} ${cardsStr}`.trim();
 
         const kinetic = 0.5 * mass * velocity * velocity;
         const power = kinetic / 0.1;
@@ -391,13 +421,13 @@ export class GameHUD {
 
     public showAlert(text: string, color: string): void {
         this.alertTxt.text = text;
-        this.alertTxt.color = color;
-        this.alertTxt.isVisible = true;
+        this.alertPanel.color = color; // Cor da borda muda dinamicamente (Amarelo ou Vermelho)
+        this.alertPanel.isVisible = true;
         if (this.alertTimer) clearTimeout(this.alertTimer);
         this.alertTimer = setTimeout(() => {
             this.alertTimer = null;
-            this.alertTxt.isVisible = false;
-        }, 4200);
+            this.alertPanel.isVisible = false;
+        }, 4500); // 4.5 segundos de exibição confortável
     }
 
     public showHint(hasShotOnce: boolean): void {
@@ -453,6 +483,7 @@ export class GameHUD {
         this.topBar.dispose();
         this.aimPanel.dispose();
         this.goalTxt.dispose();
+        this.alertPanel.dispose();
         this.alertTxt.dispose();
         this.hintTxt.dispose();
         this.floatTexts.forEach(f => f.tb.dispose());

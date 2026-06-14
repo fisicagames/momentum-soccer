@@ -10,7 +10,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { RegisterJoinedPhysicsEngineComponent } from "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
-import { PhysicsEventType, IPhysicsCollisionEvent, IBasePhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
+import { PhysicsEventType, IPhysicsCollisionEvent, IBasePhysicsCollisionEvent, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin"; // Importado PhysicsMotionType
 import HavokPhysics from "@babylonjs/havok";
 import { Observer } from "@babylonjs/core/Misc/observable";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
@@ -58,7 +58,7 @@ export class MomentumSoccerGame {
     private timeLeft = MomentumSoccerGame.HALF_SECONDS;
     private lastTimerSecond = -1;
 
-    // ── Regra de 12 toques ───────────────────────────────────────────────
+    // ── Regra de 12 toques e Cartões ─────────────────────────────────────
     private lastTouchTeam: Team | null = null;
     private teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
     private currentShot: {
@@ -68,6 +68,12 @@ export class MomentumSoccerGame {
         foul: boolean;
         oppContactAfterBall: boolean;
     } | null = null;
+
+    // Listas Master de peças originais (usadas para redefinir posições e reatar expulsa)
+    private playerPiecesMaster: Piece[] = [];
+    private cpuPiecesMaster: Piece[] = [];
+    // Rastreia cartões amarelos por peça
+    private yellowCards = new Map<Piece, number>();
 
     // ── Conservação de energia ───────────────────────────────────────────
     private pieceEnergy = new Map<Piece, number>();
@@ -239,6 +245,11 @@ export class MomentumSoccerGame {
         }
 
         this.ball = createBall(this.scene, new Vector3(0, 0.19, 0));
+        
+        // Salva as listas mestres originais para restauração de expulsa
+        this.playerPiecesMaster = [...this.playerPieces];
+        this.cpuPiecesMaster = [...this.cpuPieces];
+
         this.refillEnergy();
     }
 
@@ -278,6 +289,8 @@ export class MomentumSoccerGame {
     private resetFormation(): void {
         this.hud.hideGoal();
         this.isEndlineSequenceActive = false;
+        
+        // Garante que todas as peças ativas usem a formação original (as expulsas continuam na lateral)
         for (const p of [...this.playerPieces, ...this.cpuPieces]) {
             this.teleport(p.mesh, p.home, p.aggregate);
         }
@@ -394,7 +407,48 @@ export class MomentumSoccerGame {
         const opponent: Team = shot.team === "player" ? "cpu" : "player";
 
         if (shot.foul) {
-            this.hud.showAlert(this.t("🚫 Colisão ilegal (falta)! Posse perdida.", "🚫 Illegal contact (foul)! Possession lost."), "#FF6655");
+            const offendingPiece = shot.piece;
+            const cards = (this.yellowCards.get(offendingPiece) ?? 0) + 1;
+            this.yellowCards.set(offendingPiece, cards);
+
+            const pieceName = this.currentLang === 0 ? offendingPiece.spec.namePt : offendingPiece.spec.nameEn;
+
+            if (cards < 3) {
+                // Cartão Amarelo: Exibido com borda amarela de alta legibilidade
+                const yellowText = this.t(
+                    `🟨 CARTÃO AMARELO!\nFalta cometida por: ${pieceName} (${cards}/3)`,
+                    `🟨 YELLOW CARD!\nFoul committed by: ${pieceName} (${cards}/3)`
+                );
+                this.hud.showAlert(yellowText, "#FFD24A");
+            } else {
+                // Cartão Vermelho / Expulsão: Exibido com borda vermelha
+                const redText = this.t(
+                    `🟥 CARTÃO VERMELHO (EXPULSÃO)!\n${pieceName} recebeu o 3º amarelo e foi expulso!`,
+                    `🟥 RED CARD (EXPULSION)!\n${pieceName} received the 3rd yellow and is sent off!`
+                );
+                this.hud.showAlert(redText, "#FF6655");
+
+                // Remove a peça expulsa da lista ativa de jogo
+                if (offendingPiece.team === "player") {
+                    this.playerPieces = this.playerPieces.filter(p => p !== offendingPiece);
+                    const playerExpelledCount = this.playerPiecesMaster.length - this.playerPieces.length;
+                    // Teleporta a peça expulsa de forma estática para a lateral do jogador
+                    const sidelinePos = new Vector3(-4.8, offendingPiece.home.y, -4.5 + playerExpelledCount * 0.7);
+                    this.teleport(offendingPiece.mesh, sidelinePos, offendingPiece.aggregate);
+                } else {
+                    this.cpuPieces = this.cpuPieces.filter(p => p !== offendingPiece);
+                    const cpuExpelledCount = this.cpuPiecesMaster.length - this.cpuPieces.length;
+                    // Teleporta a peça expulsa de forma estática para a lateral da CPU
+                    const sidelinePos = new Vector3(4.8, offendingPiece.home.y, 4.5 - cpuExpelledCount * 0.7);
+                    this.teleport(offendingPiece.mesh, sidelinePos, offendingPiece.aggregate);
+                }
+
+                // Trava as propriedades físicas da peça expulsa na lateral
+                offendingPiece.aggregate.body.setLinearVelocity(Vector3.ZeroReadOnly);
+                offendingPiece.aggregate.body.setAngularVelocity(Vector3.ZeroReadOnly);
+                offendingPiece.aggregate.body.setMotionType(PhysicsMotionType.STATIC);
+            }
+
             this.changePossessionTo(opponent);
             return;
         }
@@ -460,10 +514,12 @@ export class MomentumSoccerGame {
             },
             onAimUpdate: (aim) => {
                 this.hud.showHint(true);
+                const cards = this.yellowCards.get(aim.piece) ?? 0;
                 this.hud.updateAimPanel(
                     aim.piece.spec.namePt, aim.piece.spec.nameEn,
                     aim.piece.spec.mass, aim.velocity, aim.impulse,
-                    this.energyOf(aim.piece), MomentumSoccerGame.ENERGY_BAR_MAX, MomentumSoccerGame.ENERGY_LOW
+                    this.energyOf(aim.piece), MomentumSoccerGame.ENERGY_BAR_MAX, MomentumSoccerGame.ENERGY_LOW,
+                    cards // Passando a contagem de cartões amarelos para a HUD
                 );
             },
             onAimEnd: () => {
@@ -763,8 +819,16 @@ export class MomentumSoccerGame {
     private enterState(state: GameState): void {
         this.gameState = state;
         this.stateTime = 0;
-        if (state === "PLAYER_AIM") this.setCameraControl(true);
-        else if (!this.slingshot?.isAiming) this.setCameraControl(false);
+        if (state === "PLAYER_AIM") {
+            this.setCameraControl(true);
+        } else {
+            if (!this.slingshot?.isAiming) this.setCameraControl(false);
+            
+            // Failsafe definitivo para esconder o painel de telemetria sempre que sair do estado de mira do jogador
+            if (this.hud) {
+                this.hud.hideAimPanel();
+            }
+        }
         this.updateTurnText();
     }
 
@@ -853,13 +917,8 @@ export class MomentumSoccerGame {
         return goal;
     }
 
-    /**
-     * Resolve a bola saindo pela linha de fundo com atraso dramático (cinematográfico):
-     *  - Se o último toque foi do ATACANTE: Tiro de Meta para o defensor após 1.5s.
-     *  - Se o último toque foi do DEFENSOR: Escanteio para o atacante após 1.5s.
-     */
     private checkGoalKick(): boolean {
-        if (this.isEndlineSequenceActive) return true; // já está rodando a cena de vôo livre
+        if (this.isEndlineSequenceActive) return true;
 
         const pos = this.ball.mesh.position;
 
@@ -868,15 +927,16 @@ export class MomentumSoccerGame {
         const isPotentialGoal = Math.abs(pos.x) < (Arena.GOAL_W / 2 - 0.05) && pos.y < Arena.POST_H;
         if (isPotentialGoal) return false;
 
-        // Gatilho de saída: 7.2 no Z (apenas para bolas que vão para fora/chutes errados)
+        // Gatilho de saída: 7.2 no Z (apenas para chutes errados / fora)
         if (Math.abs(pos.z) <= Arena.GOAL_LINE_Z - 0.3) return false;
 
         this.isEndlineSequenceActive = true;
         this.currentShot = null;
 
-        const side = Math.sign(pos.z); // +1 = linha de fundo da CPU, -1 = do jogador
+        const side = Math.sign(pos.z);
         const defendingTeam: Team = side > 0 ? "cpu" : "player";
         const attackingTeam: Team = side > 0 ? "player" : "cpu";
+        this.currentShot = null;
 
         const lastTouch = this.lastTouchTeam ?? attackingTeam;
 
@@ -898,6 +958,7 @@ export class MomentumSoccerGame {
                 this.isEndlineSequenceActive = false;
                 if (this.gameState !== "GOAL_PAUSE") return;
 
+                // 1. Encontra a peça atacante mais próxima da saída da bola
                 const ownPieces = attackingTeam === "player" ? this.playerPieces : this.cpuPieces;
                 let nearestPiece = ownPieces[0];
                 let minDist = Infinity;
@@ -907,19 +968,24 @@ export class MomentumSoccerGame {
                     if (d < minDist) { minDist = d; nearestPiece = p; }
                 }
 
-                const cornerX = (Math.sign(ballOutX) || 1) * (Arena.FIELD_W / 2 - 0.55);
-                const cornerZ = side * (Arena.GOAL_LINE_Z - 0.55);
-                const cornerPos = new Vector3(cornerX, 0.19, cornerZ);
-
-                this.teleport(this.ball.mesh, cornerPos, this.ball.aggregate);
-
+                // 2. Determina os limites máximos de segurança para o centro do botão cobrador
                 const marginX = Arena.FIELD_W / 2 - nearestPiece.spec.radius - 0.12;
                 const marginZ = Arena.GOAL_LINE_Z - nearestPiece.spec.radius - 0.12;
-                const pieceX = Math.max(-marginX, Math.min(marginX, cornerX - Math.sign(cornerX) * 0.4));
-                const pieceZ = Math.max(-marginZ, Math.min(marginZ, cornerZ - side * 0.4));
-                const piecePos = new Vector3(pieceX, nearestPiece.home.y, pieceZ);
 
+                // 3. Posiciona a PEÇA de forma 100% segura no canto interno do campo (travada pelas paredes)
+                const pieceX = (Math.sign(ballOutX) || 1) * marginX;
+                const pieceZ = side * marginZ;
+                const piecePos = new Vector3(pieceX, nearestPiece.home.y, pieceZ);
                 this.teleport(nearestPiece.mesh, piecePos, nearestPiece.aggregate);
+
+                // 4. Posiciona a BOLA projetada a partir da peça em direção ao centro do campo,
+                // garantindo a distância física exata (soma dos raios + folga) e impedindo sobreposições
+                const dirToCenter = new Vector3(-Math.sign(pieceX), 0, -Math.sign(pieceZ)).normalize();
+                const gap = this.ball.radius + nearestPiece.spec.radius + 0.12;
+                const ballPos = piecePos.add(dirToCenter.scale(gap));
+                ballPos.y = 0.19;
+
+                this.teleport(this.ball.mesh, ballPos, this.ball.aggregate);
 
                 this.possession = attackingTeam;
                 this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
@@ -936,7 +1002,6 @@ export class MomentumSoccerGame {
         else this.cpuScore++;
         this.updateScoreText();
 
-        // Festa proporcional à conquista
         this.confettiSystem.emitter = this.ball.mesh.position.clone();
         this.confettiSystem.manualEmitCount = scorer === "player" ? 300 : 80;
         if (this.impactSound) { this.impactSound.volume = 1; this.impactSound.play(); }
@@ -1029,6 +1094,16 @@ export class MomentumSoccerGame {
         this.half = 1;
         this.timeLeft = MomentumSoccerGame.HALF_SECONDS;
         this.lastTimerSecond = -1;
+        
+        // Restaura as listas de peças ativas das listas Master (restando expulsões)
+        this.playerPieces = [...this.playerPiecesMaster];
+        this.cpuPieces = [...this.cpuPiecesMaster];
+        this.yellowCards.clear();
+        
+        for (const p of [...this.playerPieces, ...this.cpuPieces]) {
+            p.aggregate.body.setMotionType(PhysicsMotionType.DYNAMIC);
+        }
+
         this.updateScoreText();
         this.updateTimerText();
         this.hud.hideGameOver();
