@@ -328,6 +328,10 @@ export class MomentumSoccerGame {
         this.executeAutomaticKickoff(team);
     }
 
+    /**
+     * Realiza um passe automático e suave de recuo do centroavante para o seu próprio campo.
+     * Um pequeno delay de 60ms é usado para permitir que o Havok integre o teleporte antes de aplicar a força.
+     */
     private executeAutomaticKickoff(team: Team): void {
         const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
         const piece = ownPieces.find(p => p.spec.id === "center_forward")!;
@@ -344,7 +348,13 @@ export class MomentumSoccerGame {
         // Usa a variação randômica sobre a constante (entre 70% e 100% de 1.6 de momento)
         const impulse = MomentumSoccerGame.KICKOFF_MAX_IMPULSE * (0.7 + 0.3 * Math.random());
         this._tmp.set(dx * impulse, 0, dz * impulse);
-        piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
+
+        // Um delay de 60ms (imperceptível) garante estabilidade absoluta na física do Havok
+        setTimeout(() => {
+            if (this.gameState === "ROLLING" || this.gameState === "PLAYER_AIM" || this.gameState === "CPU_TURN") {
+                piece.aggregate.body.applyImpulse(this._tmp, piece.mesh.getAbsolutePosition());
+            }
+        }, 60);
 
         this.trackShot(piece, team, impulse);
         this.enterState("ROLLING");
