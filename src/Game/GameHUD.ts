@@ -271,7 +271,8 @@ export class GameHUD {
         this.goalTxt.isHitTestVisible = false;
         this.goalPanel.addControl(this.goalTxt);
 
-        // Card de Alerta Avançado (Z-Index alto: 100)
+// Card de Alerta Avançado (Alta Legibilidade) (Z-Index alto: 100)
+        // Posicionado a 130px do topo para dar folga perfeita de 10px abaixo da topBar de 92px
         this.alertPanel = new Rectangle("alertPanel");
         this.alertPanel.width = "90%";
         this.alertPanel.height = "56px";
@@ -280,7 +281,7 @@ export class GameHUD {
         this.alertPanel.color = "#FFC34D";
         this.alertPanel.background = "rgba(10,10,30,0.88)"; // Fundo escuro de alto contraste
         this.alertPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.alertPanel.top = "102px";
+        this.alertPanel.top = "130px"; // Ajustado de 102px para 130px para evitar cortes
         this.alertPanel.isHitTestVisible = false; // Não bloqueia cliques
         this.alertPanel.isVisible = false;
         this.alertPanel.zIndex = 100;
