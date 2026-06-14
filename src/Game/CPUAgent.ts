@@ -65,6 +65,14 @@ export class CPUAgent {
         for (const piece of candidates) {
             // Ponto de contato físico ideal atrás da bola
             const contact = ballPos.subtract(desired.scale(ball.radius + piece.spec.radius));
+
+            // ── SOLUÇÃO 1: TRAVA DE PAREDE LATERAL (Capping de X) ────────────
+            // Se a bola estiver na lateral do campo, impede que o ponto de contato
+            // calculado caia para fora do muro invisível (X = ±4.0), o que faria
+            // o botão da CPU ficar batendo contra a parede sem tocar na bola.
+            const maxContactX = Arena.FIELD_W / 2 - piece.spec.radius - 0.05;
+            contact.x = Math.max(-maxContactX, Math.min(maxContactX, contact.x));
+
             const dir = contact.subtract(piece.mesh.position);
             dir.y = 0;
             const dist = dir.length();
@@ -77,6 +85,15 @@ export class CPUAgent {
             const alignment = (align + 1) / 2;
 
             let score = CPUAgent.W_PROXIMITY * proximity + CPUAgent.W_ALIGNMENT * alignment;
+
+            // ── SOLUÇÃO 2: EVITAR VAI-E-VEM EM BOLAS COLADAS ─────────────────
+            // Se o botão estiver colado na bola, mas em um ângulo ruim para o gol
+            // (ex: na frente ou de lado), penaliza o score drasticamente. Isso força
+            // a CPU a escolher outro companheiro livre que venha de trás com bom ângulo.
+            if (dist < 0.6 && align < 0.4) {
+                score *= 0.15;
+            }
+
             if (CPUAgent.isPathBlocked(game, piece, piece.mesh.position, contact)) {
                 score *= CPUAgent.BLOCKED_PENALTY; // colisão antes da bola seria falta
             }
@@ -96,7 +113,10 @@ export class CPUAgent {
             const vBall = Math.min(2.2 + travel * 0.65, 4.5);
             const m = best.piece.spec.mass;
             const vPiece = vBall * (m + ball.mass) / (2 * m) + best.dist * 0.25;
+            
+            // Força um impulso mínimo de 2.5 para evitar "micro-toques" e empurrar a bola com firmeza
             impulse = Math.min(m * Math.max(vPiece, 1.4), MomentumSoccerGame.MAX_IMPULSE);
+            impulse = Math.max(impulse, 2.5); 
         }
         
         // Capping estrito de segurança pela energia restante do botão: K = J²/(2m) <= E

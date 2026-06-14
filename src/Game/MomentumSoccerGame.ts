@@ -20,7 +20,7 @@ import { Arena } from "./Arena";
 import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 import { GameHUD } from "./GameHUD";
-import { CPUAgent } from "./CPUAgent"; // Import do novo módulo da IA
+import { CPUAgent } from "./CPUAgent";
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TIME" | "GAMEOVER";
 
