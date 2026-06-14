@@ -240,8 +240,8 @@ export class GameHUD {
         this.goalPanel.height = "70px";
         this.goalPanel.thickness = 0;
         this.goalPanel.background = "rgba(10,10,32,0.88)"; // Fundo escuro premium
-        this.goalPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-        this.goalPanel.top = "-120px";
+        this.goalPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP; // Alinhamento no topo!
+        this.goalPanel.top = "104px";
         this.goalPanel.isHitTestVisible = false;
         this.goalPanel.isVisible = false;
         this.goalPanel.zIndex = 110;
@@ -528,6 +528,17 @@ export class GameHUD {
         return this.currentLang === 0 ? s.replace(".", ",") : s;
     }
 
+    /**
+     * Oculta o painel de alertas centrais de forma forçada, limpando os temporizadores.
+     * Usado como failsafe na transição de estados de jogo.
+     */
+    public hideAlert(): void {
+        if (this.alertTimer) {
+            window.clearTimeout(this.alertTimer);
+            this.alertTimer = null;
+        }
+        this.alertPanel.isVisible = false;
+    }
     public dispose(): void {
         if (this.alertTimer) clearTimeout(this.alertTimer);
         this.ui.dispose();
