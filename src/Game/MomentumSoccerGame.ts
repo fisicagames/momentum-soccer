@@ -894,11 +894,12 @@ export class MomentumSoccerGame {
                 this.enterTurnState();
             }, 1500); // 1.5 segundos de vôo livre assistido pela câmera
         } else {
+            // ── ESCANTEIO (Corner Kick) ──────────────────────────────────────
             this.hud.showAlert(this.t("🚩 Escanteio!", "🚩 Corner Kick!"), "#FFD24A");
 
             setTimeout(() => {
                 this.isEndlineSequenceActive = false;
-                if (this.gameState !== "GOAL_PAUSE") return;
+                if (this.gameState !== "GOAL_PAUSE") return; // failsafe
 
                 // 1. Encontra a peça atacante mais próxima da saída da bola
                 const ownPieces = attackingTeam === "player" ? this.playerPieces : this.cpuPieces;
@@ -910,19 +911,24 @@ export class MomentumSoccerGame {
                     if (d < minDist) { minDist = d; nearestPiece = p; }
                 }
 
-                const cornerX = (Math.sign(ballOutX) || 1) * (Arena.FIELD_W / 2 - 0.55);
-                const cornerZ = side * (Arena.GOAL_LINE_Z - 0.55);
-                const cornerPos = new Vector3(cornerX, 0.19, cornerZ);
-
-                this.teleport(this.ball.mesh, cornerPos, this.ball.aggregate);
-
+                // 2. Determina as margens máximas de segurança para o centro da peça cobradora (dentro dos limites físicos)
                 const marginX = Arena.FIELD_W / 2 - nearestPiece.spec.radius - 0.12;
                 const marginZ = Arena.GOAL_LINE_Z - nearestPiece.spec.radius - 0.12;
-                const pieceX = Math.max(-marginX, Math.min(marginX, cornerX - Math.sign(cornerX) * 0.4));
-                const pieceZ = Math.max(-marginZ, Math.min(marginZ, cornerZ - side * 0.4));
-                const piecePos = new Vector3(pieceX, nearestPiece.home.y, pieceZ);
 
+                // 3. Posiciona a PEÇA de forma 100% segura no canto interno do campo (travada pelas paredes)
+                const pieceX = (Math.sign(ballOutX) || 1) * marginX;
+                const pieceZ = side * marginZ;
+                const piecePos = new Vector3(pieceX, nearestPiece.home.y, pieceZ);
                 this.teleport(nearestPiece.mesh, piecePos, nearestPiece.aggregate);
+
+                // 4. Posiciona a BOLA projetada a partir da peça em direção ao centro do campo,
+                // garantindo que ela fique sempre na frente do botão e livre de qualquer sobreposição
+                const dirToCenter = new Vector3(-Math.sign(pieceX), 0, -Math.sign(pieceZ)).normalize();
+                const gap = this.ball.radius + nearestPiece.spec.radius + 0.12;
+                const ballPos = piecePos.add(dirToCenter.scale(gap));
+                ballPos.y = 0.19; // altura padrão da bola
+
+                this.teleport(this.ball.mesh, ballPos, this.ball.aggregate);
 
                 this.possession = attackingTeam;
                 this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
