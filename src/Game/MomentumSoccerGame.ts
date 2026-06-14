@@ -10,7 +10,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { RegisterJoinedPhysicsEngineComponent } from "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
-import { PhysicsEventType, IPhysicsCollisionEvent, IBasePhysicsCollisionEvent, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin"; // Importado PhysicsMotionType
+import { PhysicsEventType, IPhysicsCollisionEvent, IBasePhysicsCollisionEvent, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import HavokPhysics from "@babylonjs/havok";
 import { Observer } from "@babylonjs/core/Misc/observable";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
@@ -20,6 +20,7 @@ import { Arena } from "./Arena";
 import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team } from "./PieceFactory";
 import { SlingshotController, AimState } from "./SlingshotController";
 import { GameHUD } from "./GameHUD";
+import { CPUAgent } from "./CPUAgent"; // Import do novo módulo da IA
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TIME" | "GAMEOVER";
 
@@ -269,9 +270,26 @@ export class MomentumSoccerGame {
         }
     }
 
-    private energyImpulseCap(piece: Piece): number {
+    // Métodos e Getters públicos criados para o completo desacoplamento da IA do CPUAgent
+    public getPlayerPieces(): Piece[] { return this.playerPieces; }
+    public getCpuPieces(): Piece[] { return this.cpuPieces; }
+    public getBall(): Ball { return this.ball; }
+    public getTeamTouchesLeft(): number { return this.teamTouchesLeft; }
+
+    public getEnergyImpulseCap(piece: Piece): number {
         const energy = Math.max(this.energyOf(piece), 0);
         return Math.sqrt(2 * piece.spec.mass * energy);
+    }
+
+    public isPieceExhausted(piece: Piece): boolean {
+        return this.isExhausted(piece);
+    }
+
+    /** Executa fisicamente o chute calculado pela IA e inicia o rolamento de física */
+    public applyCPUShot(piece: Piece, impulseVector: Vector3, impulse: number): void {
+        piece.aggregate.body.applyImpulse(impulseVector, piece.mesh.getAbsolutePosition());
+        this.trackShot(piece, "cpu", impulse);
+        this.enterState("ROLLING");
     }
 
     private isExhausted(piece: Piece): boolean {
@@ -412,7 +430,6 @@ export class MomentumSoccerGame {
         this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
         this.teleport(goalkeeper.mesh, this._tmp.set(0, goalkeeper.home.y, gkZ), goalkeeper.aggregate);
 
-        // Alerta simplificado para "Tiro de Meta!" sem o sufixo conforme solicitado
         this.hud.showAlert(this.t("⚽ Tiro de Meta!", "⚽ Goal Kick!"), "#CCCCCC");
     }
 
@@ -521,7 +538,7 @@ export class MomentumSoccerGame {
             camera: this.camera,
             maxImpulse: MomentumSoccerGame.MAX_IMPULSE,
             maxDrag: MomentumSoccerGame.MAX_DRAG,
-            impulseCap: (piece) => Math.min(MomentumSoccerGame.MAX_IMPULSE, this.energyImpulseCap(piece)),
+            impulseCap: (piece) => Math.min(MomentumSoccerGame.MAX_IMPULSE, this.getEnergyImpulseCap(piece)),
             playerPieces: () => this.playerPieces,
             canAim: () => this.gameState === "PLAYER_AIM",
             canSelectPiece: (piece) => !this.isExhausted(piece),
@@ -561,122 +578,12 @@ export class MomentumSoccerGame {
         this.enterState("ROLLING");
     }
 
-    // ── IA DO ADVERSÁRIO ─────────────────────────────────────────────────────
-
-    private isCorridorBlocked(from: Vector3, to: Vector3, movingRadius: number, exclude: Mesh[]): boolean {
-        const segX = to.x - from.x, segZ = to.z - from.z;
-        const segLen2 = segX * segX + segZ * segZ;
-        if (segLen2 < 1e-6) return false;
-
-        const blockers: { x: number; z: number; radius: number }[] = [];
-        for (const p of [...this.playerPieces, ...this.cpuPieces]) {
-            if (exclude.includes(p.mesh)) continue;
-            blockers.push({ x: p.mesh.position.x, z: p.mesh.position.z, radius: p.spec.radius });
-        }
-
-        for (const blk of blockers) {
-            const t = Math.max(0, Math.min(1, ((blk.x - from.x) * segX + (blk.z - from.z) * segZ) / segLen2));
-            const dx = blk.x - (from.x + segX * t);
-            const dz = blk.z - (from.z + segZ * t);
-            const clearance = movingRadius + blk.radius + 0.04;
-            if (dx * dx + dz * dz < clearance * clearance) return true;
-        }
-        return false;
-    }
-
-    private isPathBlocked(shooter: Piece, from: Vector3, to: Vector3): boolean {
-        return this.isCorridorBlocked(from, to, shooter.spec.radius, [shooter.mesh, this.ball.mesh]);
-    }
+    // ── IA DO ADVERSÁRIO (DESACOPLADO PARA O CPUAgent) ────────────────────────
 
     private cpuShoot(): void {
-        const ballPos = this.ball.mesh.position;
-        const playerGoal = this._tmp2.set(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
-
-        const candidates = this.cpuPieces.filter(p => !this.isExhausted(p));
-        if (candidates.length === 0) return;
-
-        const goalPathClear = !this.isCorridorBlocked(ballPos, playerGoal, this.ball.radius, [this.ball.mesh]);
-        
-        const distToGoal = Vector3.Distance(ballPos, playerGoal);
-        const randomShotRisk = distToGoal < 7.5 && Math.random() < 0.5;
-        let shootAtGoal = goalPathClear || this.teamTouchesLeft <= 4 || randomShotRisk;
-
-        let target = playerGoal.clone();
-        if (!shootAtGoal) {
-            let bestMate: Piece | null = null;
-            let bestMateScore = -Infinity;
-            for (const mate of this.cpuPieces) {
-                const matePos = mate.mesh.position;
-                const dist = Vector3.Distance(matePos, ballPos);
-                if (dist < 0.9) continue;
-                const blocked = this.isCorridorBlocked(ballPos, matePos, this.ball.radius, [this.ball.mesh, mate.mesh]);
-                const advance = ballPos.z - matePos.z;
-                
-                const score = (blocked ? 0 : 2.0) + advance * 0.15 - dist * 0.08;
-                if (score > bestMateScore) {
-                    bestMateScore = score;
-                    bestMate = mate;
-                }
-            }
-            if (bestMate) target = bestMate.mesh.position.clone();
-            else shootAtGoal = true;
-        }
-
-        const desired = target.subtract(ballPos);
-        desired.y = 0;
-        desired.normalize();
-
-        const W_PROXIMITY = 0.75;
-        const W_ALIGNMENT = 0.25;
-        const BLOCKED_PENALTY = 0.20;
-
-        let best: { piece: Piece; dir: Vector3; dist: number; align: number; score: number } | null = null;
-
-        for (const piece of candidates) {
-            const contact = ballPos.subtract(desired.scale(this.ball.radius + piece.spec.radius));
-            const dir = contact.subtract(piece.mesh.position);
-            dir.y = 0;
-            const dist = dir.length();
-            if (dist < 0.05) continue;
-            dir.normalize();
-
-            const proximity = Math.exp(-dist / 1.8);
-            const align = Vector3.Dot(dir, desired);
-            const alignment = (align + 1) / 2;
-
-            let score = W_PROXIMITY * proximity + W_ALIGNMENT * alignment;
-            if (this.isPathBlocked(piece, piece.mesh.position, contact)) {
-                score *= BLOCKED_PENALTY;
-            }
-            if (!best || score > best.score) {
-                best = { piece, dir, dist, align, score };
-            }
-        }
-        if (!best) return;
-
-        let impulse: number;
-        if (shootAtGoal) {
-            impulse = MomentumSoccerGame.MAX_IMPULSE;
-        } else {
-            const travel = Vector3.Distance(ballPos, target);
-            const vBall = Math.min(2.2 + travel * 0.65, 4.5);
-            const m = best.piece.spec.mass;
-            const vPiece = vBall * (m + this.ball.mass) / (2 * m) + best.dist * 0.25;
-            impulse = Math.min(m * Math.max(vPiece, 1.4), MomentumSoccerGame.MAX_IMPULSE);
-        }
-        
-        impulse = Math.min(impulse, this.energyImpulseCap(best.piece));
-
-        const noise = (Math.random() - 0.5) * 0.12 * (1.2 - Math.max(best.align, 0));
-        const cos = Math.cos(noise), sin = Math.sin(noise);
-        const dx = best.dir.x * cos - best.dir.z * sin;
-        const dz = best.dir.x * sin + best.dir.z * cos;
-
-        this._tmp.set(dx * impulse, 0, dz * impulse);
-        best.piece.aggregate.body.applyImpulse(this._tmp, best.piece.mesh.getAbsolutePosition());
-
-        this.trackShot(best.piece, "cpu", impulse);
-        this.enterState("ROLLING");
+        // Toda a lógica tática de decisão, passes dosados e chutes agressivos
+        // foi encapsulada de forma limpa dentro do módulo estático CPUAgent
+        CPUAgent.executeTurn(this);
     }
 
     // ── PARTÍCULAS ───────────────────────────────────────────────────────────
@@ -936,6 +843,11 @@ export class MomentumSoccerGame {
         return goal;
     }
 
+    /**
+     * Resolve a bola saindo pela linha de fundo com atraso dramático (cinematográfico):
+     *  - Se o último toque foi do ATACANTE: Tiro de Meta para o defensor após 1.5s.
+     *  - Se o último toque foi do DEFENSOR: Escanteio para o atacante após 1.5s.
+     */
     private checkGoalKick(): boolean {
         if (this.isEndlineSequenceActive) return true;
 
@@ -998,24 +910,19 @@ export class MomentumSoccerGame {
                     if (d < minDist) { minDist = d; nearestPiece = p; }
                 }
 
-                // 2. Determina os limites máximos de segurança para o centro do botão cobrador
+                const cornerX = (Math.sign(ballOutX) || 1) * (Arena.FIELD_W / 2 - 0.55);
+                const cornerZ = side * (Arena.GOAL_LINE_Z - 0.55);
+                const cornerPos = new Vector3(cornerX, 0.19, cornerZ);
+
+                this.teleport(this.ball.mesh, cornerPos, this.ball.aggregate);
+
                 const marginX = Arena.FIELD_W / 2 - nearestPiece.spec.radius - 0.12;
                 const marginZ = Arena.GOAL_LINE_Z - nearestPiece.spec.radius - 0.12;
-
-                // 3. Posiciona a PEÇA de forma 100% segura no canto interno do campo (travada pelas paredes)
-                const pieceX = (Math.sign(ballOutX) || 1) * marginX;
-                const pieceZ = side * marginZ;
+                const pieceX = Math.max(-marginX, Math.min(marginX, cornerX - Math.sign(cornerX) * 0.4));
+                const pieceZ = Math.max(-marginZ, Math.min(marginZ, cornerZ - side * 0.4));
                 const piecePos = new Vector3(pieceX, nearestPiece.home.y, pieceZ);
+
                 this.teleport(nearestPiece.mesh, piecePos, nearestPiece.aggregate);
-
-                // 4. Posiciona a BOLA projetada a partir da peça em direção ao centro do campo,
-                // garantindo a distância física exata (soma dos raios + folga) e impedindo sobreposições
-                const dirToCenter = new Vector3(-Math.sign(pieceX), 0, -Math.sign(pieceZ)).normalize();
-                const gap = this.ball.radius + nearestPiece.spec.radius + 0.12;
-                const ballPos = piecePos.add(dirToCenter.scale(gap));
-                ballPos.y = 0.19;
-
-                this.teleport(this.ball.mesh, ballPos, this.ball.aggregate);
 
                 this.possession = attackingTeam;
                 this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
