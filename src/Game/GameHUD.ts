@@ -11,6 +11,8 @@ import { Team } from "./PieceFactory"; // Unificado usando o tipo Team oficial
 export class GameHUD {
     private scene: Scene;
     private ui: AdvancedDynamicTexture;
+    // Constante estática para facilitar a calibração do tempo dos alertas (ex: 4500ms)
+    private static readonly ALERT_DURATION = 4500;
 
     // Cabeçalho superior (Placar, Tempo, Toques)
     private topBar!: Rectangle;
@@ -475,7 +477,7 @@ export class GameHUD {
         this.alertTimer = window.setTimeout(() => {
             this.alertTimer = null;
             this.alertPanel.isVisible = false;
-        }, 4500); // 4.5 segundos de exibição legível
+        }, 2500); // 4.5 segundos de exibição legível
     }
 
     public showHint(hasShotOnce: boolean): void {
