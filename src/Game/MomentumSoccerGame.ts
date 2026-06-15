@@ -771,6 +771,12 @@ export class MomentumSoccerGame {
     private enterState(state: GameState): void {
         this.gameState = state;
         this.stateTime = 0;
+
+        // Cancela qualquer arrasto ativo ou fantasma no controle de estilingue
+        if (this.slingshot) {
+            this.slingshot.forceCancel();
+        }
+
         if (state === "PLAYER_AIM") {
             this.setCameraControl(true);
         } else {
@@ -800,10 +806,14 @@ export class MomentumSoccerGame {
             this.updateFeedbackAnimations(dt);
             this.safetyFilter();
 
-            if (this.gameState !== "PLAYER_AIM" && this.hud) {
-                this.hud.hideAimPanel();
+            // FAILSAFE ABSOLUTO: Se o jogo não estiver no estado de mira do jogador OU se o controle
+            // não estiver ativamente realizando um arrasto de mira, força a ocultação da telemetria.
+            if (this.hud) {
+                if (this.gameState !== "PLAYER_AIM" || !this.slingshot?.isAiming) {
+                    this.hud.hideAimPanel();
+                }
             }
-
+            
             switch (this.gameState) {
                 case "ROLLING": {
                     const goal = this.detectGoal();

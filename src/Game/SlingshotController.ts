@@ -106,6 +106,16 @@ export class SlingshotController {
         return this.aimingPiece !== null;
     }
 
+    /**
+     * Cancela imediatamente qualquer mira ou arrasto ativo.
+     * Failsafe para evitar estados corrompidos por transições externas de turnos ou reinicializações.
+     */
+    public forceCancel(): void {
+        if (this.aimingPiece) {
+            this.cancelAim();
+        }
+    }
+
     /** Encerra o arrasto atual sem disparo, restaurando câmera e HUD. */
     private cancelAim(): void {
         if (!this.aimingPiece) return;
