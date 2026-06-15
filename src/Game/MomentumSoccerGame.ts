@@ -556,7 +556,7 @@ export class MomentumSoccerGame {
                     aim.piece.spec.namePt, aim.piece.spec.nameEn,
                     aim.piece.spec.mass, aim.velocity, aim.impulse,
                     this.energyOf(aim.piece), MomentumSoccerGame.ENERGY_BAR_MAX, MomentumSoccerGame.ENERGY_LOW,
-                    cards // Passando a contagem de cartões amarelos para a HUD
+                    cards
                 );
             },
             onAimEnd: () => {
@@ -564,6 +564,18 @@ export class MomentumSoccerGame {
                 this.hud.showHint(this.hasShotOnce);
             },
             onShoot: (aim) => this.shoot(aim),
+            onTapDuringOpponentTurn: () => {
+                // Impede sobreposição visual se o jogo já estiver finalizado
+                // Modificado para disparar unicamente durante a posse ativa da CPU
+                if (this.gameState === "CPU_TURN") {
+                    this.hud.showTemporaryHint(
+                        "Aguarde sua vez!",
+                        "Wait for your turn!",
+                        2000,
+                        this.hasShotOnce
+                    );
+                }
+            }
         });
     }
 
@@ -765,16 +777,16 @@ export class MomentumSoccerGame {
             if (!this.slingshot?.isAiming) this.setCameraControl(false);
         }
         
-        // FAILSAFE DE GUI: Esconde o painel de telemetria ao mudar de estado.
-        // Esconde alertas apenas quando a bola entra em jogo ativa (ROLLING) para dar tempo de leitura nos turnos.
         if (this.hud) {
             this.hud.hideAimPanel();
             if (state === "ROLLING") {
                 this.hud.hideAlert();
             }
+            // Sincroniza a dica atual de forma imediata na transição de estados
+            this.hud.showHint(this.hasShotOnce);
         }
         
-        this.updateScoreText(); // ADICIONADO: Sincroniza a cor verde brilhante do turno ativo instantaneamente
+        this.updateScoreText(); 
         this.updateTurnText();
     }
 

@@ -42,6 +42,7 @@ export class GameHUD {
     private hintTxt!: TextBlock;
     private alertTimer: any = null;
     private hintPanel!: Rectangle;
+    private hintTimer: any = null;
 
 
     // Pool de textos flutuantes de impacto (Δp)
@@ -495,12 +496,37 @@ export class GameHUD {
     }
 
     public showHint(hasShotOnce: boolean): void {
+        // Limpa o temporizador ativo para evitar conflitos se a dica padrão for solicitada antes
+        if (this.hintTimer) {
+            window.clearTimeout(this.hintTimer);
+            this.hintTimer = null;
+        }
         this.hintTxt.text = hasShotOnce ? "" : this.t(
             "👆 Toque em um botão azul, arraste\npara trás e solte para lançar!",
             "👆 Tap a blue piece, drag it\nbackwards and release to shoot!"
         );
         this.hintPanel.isVisible = !hasShotOnce;
     }
+
+    /**
+     * Exibe um aviso temporário no painel de dicas e restaura o estado padrão após a duração indicada.
+     */
+    public showTemporaryHint(textPt: string, textEn: string, durationMs: number = 2000, fallbackHasShotOnce: boolean = true): void {
+        if (this.hintTimer) {
+            window.clearTimeout(this.hintTimer);
+            this.hintTimer = null;
+        }
+
+        this.hintTxt.text = this.t(textPt, textEn);
+        this.hintPanel.isVisible = true;
+
+        this.hintTimer = window.setTimeout(() => {
+            this.hintTimer = null;
+            // Retorna ao estado de dica padrão com base no progresso do jogador
+            this.showHint(fallbackHasShotOnce);
+        }, durationMs);
+    }
+
 
     public triggerFloatText(point: Vector3, impulse: number, norm: number): void {
         const ft = this.floatTexts.find(f => f.life <= 0);
@@ -554,6 +580,7 @@ export class GameHUD {
     }
     public dispose(): void {
         if (this.alertTimer) clearTimeout(this.alertTimer);
+        if (this.hintTimer) clearTimeout(this.hintTimer);
         this.ui.dispose();
         this.topBar.dispose();
         this.aimPanel.dispose();

@@ -42,6 +42,7 @@ export interface SlingshotOptions {
     onAimUpdate: (aim: AimState) => void;
     onAimEnd: () => void;
     onShoot: (aim: AimState) => void;
+    onTapDuringOpponentTurn?: () => void;
 }
 
 /**
@@ -147,7 +148,36 @@ export class SlingshotController {
     }
 
     private onPointerDown(): void {
-        if (!this.opts.canAim() || this.aimingPiece) return;
+        if (!this.opts.canAim() || this.aimingPiece) {
+            // Se o jogador tocou na tela fora da sua vez de mirar, tenta encontrar se ele clicou em uma de suas peças
+            if (!this.opts.canAim() && !this.aimingPiece) {
+                const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY, (mesh: AbstractMesh) => {
+                    const piece = mesh.metadata?.piece as Piece | undefined;
+                    return !!piece && piece.team === "player";
+                });
+
+                let piece = (pick?.hit && pick.pickedMesh)
+                    ? (pick.pickedMesh.metadata.piece as Piece)
+                    : null;
+
+                // Tolerância de toque (mobile): suporte a toques próximos às peças
+                if (!piece && this.pointerToGround(0.15, this._groundPoint)) {
+                    const TOUCH_RADIUS = 1.0;
+                    let bestDist = TOUCH_RADIUS;
+                    for (const p of this.opts.playerPieces()) {
+                        this._tmp.copyFrom(p.mesh.position).subtractInPlace(this._groundPoint);
+                        this._tmp.y = 0;
+                        const d = this._tmp.length() - p.spec.radius;
+                        if (d < bestDist) { bestDist = d; piece = p; }
+                    }
+                }
+
+                if (piece) {
+                    this.opts.onTapDuringOpponentTurn?.();
+                }
+            }
+            return;
+        }
 
         const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY, (mesh: AbstractMesh) => {
             const piece = mesh.metadata?.piece as Piece | undefined;
