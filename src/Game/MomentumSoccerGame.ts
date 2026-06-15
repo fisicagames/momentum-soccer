@@ -649,6 +649,21 @@ export class MomentumSoccerGame {
         const handler = (ev: IPhysicsCollisionEvent) => {
             if (ev.type !== PhysicsEventType.COLLISION_STARTED) return;
 
+            // ── RASTREAMENTO REAL E DINÂMICO DE ÚLTIMO TOQUE NA BOLA ─────────────
+            // Se a colisão envolver a bola e qualquer botão, registra o time do botão
+            // como o último a tocar de forma automática (cobre ricochetes e desvios)
+            const nodeA = ev.collider.transformNode;
+            const nodeB = ev.collidedAgainst.transformNode;
+            const isBallA = nodeA === this.ball.mesh;
+            const isBallB = nodeB === this.ball.mesh;
+            if (isBallA || isBallB) {
+                const pieceMesh = isBallA ? nodeB : nodeA;
+                const piece = (pieceMesh as Mesh)?.metadata?.piece as Piece | undefined;
+                if (piece) {
+                    this.lastTouchTeam = piece.team; // Registra o toque físico real
+                }
+            }
+
             if (this.currentShot && this.gameState === "ROLLING") {
                 this.trackShotCollision(ev);
             }
@@ -686,7 +701,6 @@ export class MomentumSoccerGame {
 
         if (other === this.ball.mesh) {
             shot.ballTouched = true;
-            this.lastTouchTeam = shot.team;
             return;
         }
 
@@ -695,7 +709,6 @@ export class MomentumSoccerGame {
         if (otherPiece && otherPiece.team === oppTeam) {
             if (shot.ballTouched) {
                 shot.oppContactAfterBall = true;
-                this.lastTouchTeam = oppTeam;
             } else {
                 shot.foul = true;
             }
