@@ -10,19 +10,14 @@ export class LanguageSwitcher {
         this.languageOption = 0;
         this.strings = {
             ButtonLang: ["ENGLISH", "PORTUGUÊS"],
-            TextblockMeta: ["Objetivo: derrote a CPU neste futebol de botão por turnos com 12 toques! Use a física a seu favor: domine o momento linear (p=m·v) e a energia das peças. Vença aliando tática e ciência!", "Objective: defeat the CPU in this turn-based button soccer game with 12 touches! Use physics to your advantage: master linear momentum (p=m·v) and piece energy. Win by combining tactics and science!"],
+            TextblockMeta: [
+                "Objetivo: derrote a CPU neste futebol de botão por turnos com 12 toques! Use a física a seu favor: domine o momento linear (p=m·v) e a energia das peças. Vença aliando tática e ciência!",
+                "Objective: defeat the CPU in this turn-based button soccer game with 12 touches! Use physics to your advantage: master linear momentum (p=m·v) and piece energy. Win by combining tactics and science!"
+            ],
             TextblockTitle: ["Joule Cup\n2026", "Joule Cup\n2026"],
             ButtonMenuStartA: ["Iniciar", "Start"],
-            ButtonMenuStartB: ["Momento Linear", "Linear Momentum"],
-            ButtonMenuStartC: ["None", "None"],
             TextblockMenuScore: ["Melhor resultado:", "High Score:"],
-            TextBlockFirst: ["Momento Linear e Impulso", "Linear Momentum and Impulse"],
-            TextblockSecond: ["p = m·v   |   J = F·Δt = Δp", "p = m·v   |   J = F·Δt = Δp"],
-            TextBlockThird: ["p: momento linear (kg·m/s), m: massa (kg) e v: velocidade (m/s).", "p: linear momentum (kg·m/s), m: mass (kg) and v: velocity (m/s)."],
-            TextBlockQuarter: ["J: impulso aplicado e Δp: variação do momento linear.", "J: applied impulse and Δp: change in linear momentum."],
-            ButtonMenuContinuar: ["Próximo", "Next"],
-            TextblockScoreGame: ["Você venceu!", "You won!"],
-            TextblockMusic: ["Música:", "Music:"],
+            TextblockMusic: ["Música:", "Music:"]
         };
     }
 
