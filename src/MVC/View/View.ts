@@ -141,7 +141,8 @@ export class View implements IView {
 
     public setMusicIcon(isEnabled: boolean): void {
         if (this.textblockMenuMusic) {
-            this.textblockMenuMusic.text = isEnabled ? "🔊" : "🔈";
+            this.textblockMenuMusic.text = isEnabled ? "♫" : "✖";
+            this.textblockMenuMusic.color = isEnabled ? "#00E5FF" : "#D32F2F";
         }
     }
 

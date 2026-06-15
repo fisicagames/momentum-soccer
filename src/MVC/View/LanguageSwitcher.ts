@@ -17,7 +17,7 @@ export class LanguageSwitcher {
             TextblockTitle: ["Joule Cup\n2026", "Joule Cup\n2026"],
             ButtonMenuStartA: ["Iniciar", "Start"],
             TextblockMenuScore: ["Melhor resultado:", "High Score:"],
-            TextblockMusic: ["Música:", "Music:"]
+            TextblockMusic: ["Sons:", "Sounds:"]
         };
     }
 
