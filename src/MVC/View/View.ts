@@ -20,6 +20,9 @@ export class View implements IView {
     public textblockMenuMusic!: TextBlock;
     private buttonLang!: Button;
     
+    // Botão de retornar ao menu (Assinatura dos jogos)
+    private buttonMenu!: Button;
+    
     private languageSwitcher: LanguageSwitcher;
     private languageChangeListeners: ((lang: number) => void)[] = [];
 
@@ -51,9 +54,9 @@ export class View implements IView {
         this.textblockMenuMusic = this.advancedTexture.getControlByName("TextblockMenuMusic") as TextBlock;
         this.buttonLang = this.advancedTexture.getControlByName("ButtonLang") as Button;
         
-        // Failsafe: Oculta botões legados caso persistam em cache do ADT
-        const buttonMenu = this.advancedTexture.getControlByName("ButtonMenu") as Button;
-        if (buttonMenu) buttonMenu.isVisible = false;
+        // Botão de Home (Assinatura do jogo recuperada)
+        this.buttonMenu = this.advancedTexture.getControlByName("ButtonMenu") as Button;
+        this.buttonMenu.isVisible = false; // Começa oculto pois o menu está visível
     }
 
     /** Exibe o melhor resultado salvo no menu (ex.: placar/recorde do Joule Cup 2026). */
@@ -68,8 +71,7 @@ export class View implements IView {
     }
 
     public showMenuButton(): void {
-        const buttonMenu = this.advancedTexture.getControlByName("ButtonMenu") as Button;
-        if (buttonMenu) buttonMenu.isVisible = true;
+        this.buttonMenu.isVisible = true;
     }
 
     public getCurrentLanguage(): number {
@@ -79,9 +81,10 @@ export class View implements IView {
     public updateMainMenuVisibility(isVisible: boolean) {
         this.rectangleMenu.isVisible = isVisible;
         
-        const buttonMenu = this.advancedTexture.getControlByName("ButtonMenu");
-        if (buttonMenu) buttonMenu.isVisible = !isVisible;
+        // Se o menu inicial estiver ativo (true), o botão home deve sumir (false) e vice-versa
+        this.buttonMenu.isVisible = !isVisible;
         
+        // Failsafes para evitar sobreposição de elementos obsoletos
         const rectangleTop = this.advancedTexture.getControlByName("RectangleTop");
         if (rectangleTop) rectangleTop.isVisible = !isVisible;
         
@@ -94,6 +97,12 @@ export class View implements IView {
 
     public onButtonMenuStartA(callback: () => void): void {
         this.buttonMenuStartA.onPointerUpObservable.add(() => {
+            callback();
+        });
+    }
+
+    public onButtonMenu(callback: () => void): void {
+        this.buttonMenu.onPointerUpObservable.add(() => {
             callback();
         });
     }
@@ -113,11 +122,6 @@ export class View implements IView {
 
     public onButtonMenuContinuar(callback: () => void): void {
         const control = this.advancedTexture.getControlByName("ButtonMenuContinuar") as Button;
-        if (control) control.onPointerUpObservable.add(callback);
-    }
-
-    public onButtonMenu(callback: () => void): void {
-        const control = this.advancedTexture.getControlByName("ButtonMenu") as Button;
         if (control) control.onPointerUpObservable.add(callback);
     }
 
