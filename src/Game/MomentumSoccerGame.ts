@@ -565,9 +565,9 @@ export class MomentumSoccerGame {
             },
             onShoot: (aim) => this.shoot(aim),
             onTapDuringOpponentTurn: () => {
-                // Impede sobreposição visual se o jogo já estiver finalizado
-                // Modificado para disparar unicamente durante a posse ativa da CPU
-                if (this.gameState === "CPU_TURN") {
+                // Permite múltiplos cliques e atualiza a mensagem durante toda a posse da CPU
+                // (tanto no preparo CPU_TURN quanto no movimento físico ROLLING da jogada dela)
+                if (this.possession === "cpu" && (this.gameState === "CPU_TURN" || this.gameState === "ROLLING")) {
                     this.hud.showTemporaryHint(
                         "Aguarde sua vez!",
                         "Wait for your turn!",
