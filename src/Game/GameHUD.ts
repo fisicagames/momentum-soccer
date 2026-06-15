@@ -502,7 +502,7 @@ export class GameHUD {
     public updateFeedbackAnimations(dt: number): void {
         for (const f of this.floatTexts) {
             if (f.life <= 0) continue;
-            f.life -= dt * 0.8;
+            f.life -= dt * 0.5;
             if (f.life <= 0) { f.tb.isVisible = false; continue; }
             f.tb.alpha = Math.min(f.life * 2, 1);
             f.tb.linkOffsetY = (f.tb.linkOffsetY as number) - dt * 30;
