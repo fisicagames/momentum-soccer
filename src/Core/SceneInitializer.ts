@@ -39,17 +39,17 @@ export class SceneInitializer {
     }
 
     private async initialize(): Promise<void> {
-        //TODO: [ ]: Update GUI content.
         const advancedTexture = await GUILoader.loadGUI(this._scene, "./assets/gui/guiTexture.json");
         //TODO: [ ]: Update 3d models content.
         //await ModelsLoader.loadModels(this._scene, "./assets/models/", "carnotBox.gltf", true, true);
 
         this.sceneOptimizer();
-        // Céu azul de fundo
-        this._scene.clearColor = new Color4(0.31, 0.44, 0.87, 1);
+        
+        // Fundo escuro e neutro de carregamento (evita clarões e esbranquiçamento)
+        this._scene.clearColor = new Color4(0.04, 0.12, 0.03, 1.0); 
         this._scene.fogMode = Scene.FOGMODE_EXP2;
         this._scene.fogDensity = 0.003;
-        this._scene.fogColor = new Color3(0.05, 0.10, 0.28);
+        this._scene.fogColor = new Color3(0.02, 0.08, 0.02);
 
         //TODO: Re-enable lights if needed:
         // const light1 = new HemisphericLight("light1", new Vector3(0, 1, 0), this._scene);

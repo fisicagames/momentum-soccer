@@ -3,7 +3,7 @@ import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture
 import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock";
-
+import { LinearGradient } from "@babylonjs/gui";
 import { IView } from "./IView";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { PhysicsConceptualPhrases } from "./PhysicsConceptualPhrases";
@@ -57,6 +57,20 @@ export class View implements IView {
         // Botão de Home (Assinatura do jogo recuperada)
         this.buttonMenu = this.advancedTexture.getControlByName("ButtonMenu") as Button;
         this.buttonMenu.isVisible = false; // Começa oculto pois o menu está visível
+
+        // ── GRADIENTE DINÂMICO FAILSAFE (0 Mb) ──
+        // Constrói uma transição de Verde Feltro Estádio para Marrom Mogno Profundo da mesa
+        this.rectangleMenu.onDirtyObservable.add(() => {
+            const measure = this.rectangleMenu._currentMeasure;
+            
+            // Gradiente vertical perfeito baseado nas dimensões em tempo real do canvas
+            const gradient = new LinearGradient(0, measure.top, 0, measure.top + measure.height);
+            gradient.addColorStop(0, "rgb(8, 48, 4)");     // Topo: Verde campo de futebol profundo
+            gradient.addColorStop(0.5, "rgb(4, 30, 2)");    // Centro: Sombra transição para a mesa
+            gradient.addColorStop(1, "rgb(15, 9, 5)");      // Base: Marrom escuro luxuoso de mogno
+            
+            this.rectangleMenu.backgroundGradient = gradient;
+        });
     }
 
     /** Exibe o melhor resultado salvo no menu (ex.: placar/recorde do Joule Cup 2026). */
