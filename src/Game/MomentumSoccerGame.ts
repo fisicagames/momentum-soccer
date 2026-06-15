@@ -751,11 +751,13 @@ export class MomentumSoccerGame {
             if (!this.slingshot?.isAiming) this.setCameraControl(false);
         }
         
-        // FAILSAFE DE GUI: Limpa a telemetria e fecha qualquer alerta de falta/tiro de meta pendente na tela
+        // FAILSAFE DE GUI ABSOLUTO: Sempre esconde o painel de telemetria ao mudar de estado,
+        // garantindo que todo início de turno (PLAYER_AIM / CPU_TURN) ou rolamento (ROLLING)
+        // comecem limpos e sem resíduos visuais do lance anterior na tela.
         if (this.hud) {
             this.hud.hideAimPanel();
             
-            // Se o jogo entrar em ação (bola rolando ou início de turnos), limpa os alertas antigos
+            // Se o jogo entrar em ação ativa, limpa também os alertas antigos
             if (state === "ROLLING" || state === "PLAYER_AIM" || state === "CPU_TURN") {
                 this.hud.hideAlert();
             }
