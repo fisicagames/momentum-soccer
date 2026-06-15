@@ -41,6 +41,8 @@ export class GameHUD {
     private alertTxt!: TextBlock;
     private hintTxt!: TextBlock;
     private alertTimer: any = null;
+    private hintPanel!: Rectangle;
+
 
     // Pool de textos flutuantes de impacto (Δp)
     private floatTexts: { tb: TextBlock; life: number }[] = [];
@@ -299,16 +301,27 @@ export class GameHUD {
         this.alertPanel.addControl(this.alertTxt);
 
         // Dica
+        // Card de Dica/Instrução Inicial Avançado (Alta Legibilidade e Estética Premium)
+        this.hintPanel = new Rectangle("hintPanel");
+        this.hintPanel.width = "86%";
+        this.hintPanel.height = "56px";
+        this.hintPanel.cornerRadius = 10;
+        this.hintPanel.thickness = 1.5;
+        this.hintPanel.color = "#9FD4FF"; // Cor azulada suave combinando com o time do jogador
+        this.hintPanel.background = "rgba(10,10,30,0.85)"; // Fundo escuro de alto contraste
+        this.hintPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+        this.hintPanel.top = "-26px"; // Posicionado acima do botão de rodapé
+        this.hintPanel.isHitTestVisible = false; // Permite cliques de mira passarem direto
+        this.hintPanel.zIndex = 40;
+        this.ui.addControl(this.hintPanel);
+
         this.hintTxt = new TextBlock("hint", "");
-        this.hintTxt.color = "#FFFFFF";
-        this.hintTxt.fontSize = 14;
+        this.hintTxt.color = "white";
+        this.hintTxt.fontSize = 13;
         this.hintTxt.fontWeight = "bold";
-        this.hintTxt.shadowColor = "rgba(0,0,0,0.9)";
-        this.hintTxt.shadowBlur = 4;
-        this.hintTxt.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-        this.hintTxt.paddingBottom = "26px";
+        this.hintTxt.textWrapping = true;
         this.hintTxt.isHitTestVisible = false;
-        this.ui.addControl(this.hintTxt);
+        this.hintPanel.addControl(this.hintTxt);
 
         for (let i = 0; i < 4; i++) {
             const tb = new TextBlock(`dp_${i}`, "");
@@ -486,7 +499,7 @@ export class GameHUD {
             "👆 Toque em um botão azul, arraste\npara trás e solte para lançar!",
             "👆 Tap a blue piece, drag it\nbackwards and release to shoot!"
         );
-        this.hintTxt.isVisible = !hasShotOnce;
+        this.hintPanel.isVisible = !hasShotOnce;
     }
 
     public triggerFloatText(point: Vector3, impulse: number, norm: number): void {
