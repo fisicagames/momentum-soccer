@@ -550,6 +550,7 @@ export class MomentumSoccerGame {
             },
             onAimUpdate: (aim) => {
                 this.hud.showHint(true);
+                this.hud.hideAlert();
                 const cards = this.yellowCards.get(aim.piece) ?? 0;
                 this.hud.updateAimPanel(
                     aim.piece.spec.namePt, aim.piece.spec.nameEn,
@@ -751,14 +752,16 @@ export class MomentumSoccerGame {
             if (!this.slingshot?.isAiming) this.setCameraControl(false);
         }
         
-        // FAILSAFE DE GUI ABSOLUTO: Sempre esconde o painel de telemetria e o painel de alertas
-        // ao mudar de estado, garantindo que o novo turno (PLAYER_AIM / CPU_TURN) ou rolamentos (ROLLING)
-        // comecem de forma limpa e sem resíduos visuais do lance anterior na tela.
+        // FAILSAFE DE GUI: Esconde o painel de telemetria ao mudar de estado.
+        // Esconde alertas apenas quando a bola entra em jogo ativa (ROLLING) para dar tempo de leitura nos turnos.
         if (this.hud) {
             this.hud.hideAimPanel();
-            this.hud.hideAlert(); // Força a ocultação de qualquer aviso na transição de estados
+            if (state === "ROLLING") {
+                this.hud.hideAlert();
+            }
         }
         
+        this.updateScoreText(); // ADICIONADO: Sincroniza a cor verde brilhante do turno ativo instantaneamente
         this.updateTurnText();
     }
 
