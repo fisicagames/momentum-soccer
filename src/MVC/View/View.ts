@@ -19,6 +19,7 @@ export class View implements IView {
     private textblockMenuBest!: TextBlock;
     public textblockMenuMusic!: TextBlock;
     private buttonLang!: Button;
+    private buttonResetStats!: Button; // Botão de lixeira adicionado
     
     // Botão de retornar ao menu (Assinatura dos jogos)
     private buttonMenu!: Button;
@@ -53,17 +54,15 @@ export class View implements IView {
         this.textblockMenuBest = this.advancedTexture.getControlByName("TextblockMenuBest") as TextBlock;
         this.textblockMenuMusic = this.advancedTexture.getControlByName("TextblockMenuMusic") as TextBlock;
         this.buttonLang = this.advancedTexture.getControlByName("ButtonLang") as Button;
+        this.buttonResetStats = this.advancedTexture.getControlByName("ButtonResetStats") as Button; // Captura lixeira
         
         // Botão de Home (Assinatura do jogo recuperada)
         this.buttonMenu = this.advancedTexture.getControlByName("ButtonMenu") as Button;
         this.buttonMenu.isVisible = false; // Começa oculto pois o menu está visível
 
         // ── GRADIENTE DINÂMICO FAILSAFE (0 Mb) ──
-        // Constrói uma transição de Verde Feltro Estádio para Marrom Mogno Profundo da mesa
         this.rectangleMenu.onDirtyObservable.add(() => {
             const measure = this.rectangleMenu._currentMeasure;
-            
-            // Gradiente vertical perfeito baseado nas dimensões em tempo real do canvas
             const gradient = new LinearGradient(0, measure.top, 0, measure.top + measure.height);
             gradient.addColorStop(0, "rgb(8, 48, 4)");     // Topo: Verde campo de futebol profundo
             gradient.addColorStop(0.5, "rgb(4, 30, 2)");    // Centro: Sombra transição para a mesa
@@ -94,8 +93,6 @@ export class View implements IView {
 
     public updateMainMenuVisibility(isVisible: boolean) {
         this.rectangleMenu.isVisible = isVisible;
-        
-        // Se o menu inicial estiver ativo (true), o botão home deve sumir (false) e vice-versa
         this.buttonMenu.isVisible = !isVisible;
         
         // Failsafes para evitar sobreposição de elementos obsoletos de jogos anteriores
@@ -121,9 +118,15 @@ export class View implements IView {
         });
     }
 
-    // ── MOCKS DEFENSIVOS DE COMPATIBILIDADE DE INTERFACE (IView) ─────────────
-    // Garantem que Controllers legados não quebrem em runtime devido a chamadas em botões removidos.
+    public onButtonResetStats(callback: () => void): void {
+        if (this.buttonResetStats) {
+            this.buttonResetStats.onPointerUpObservable.add(() => {
+                callback();
+            });
+        }
+    }
 
+    // ── MOCKS DEFENSIVOS DE COMPATIBILIDADE DE INTERFACE (IView) ─────────────
     public onButtonMenuStartB(callback: () => void): void {
         const control = this.advancedTexture.getControlByName("ButtonMenuStartB") as Button;
         if (control) control.onPointerUpObservable.add(callback);

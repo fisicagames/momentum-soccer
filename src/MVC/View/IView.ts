@@ -7,6 +7,7 @@ export interface IView {
     onToggleMusic(callback: () => void): void;
     setMusicIcon(isEnabled: boolean): void;
     onButtonLang(callback: () => void): void;
+    onButtonResetStats(callback: () => void): void; // Adicionado contrato para reset de estatísticas
 
     updateBestStats(text: string): void;
 

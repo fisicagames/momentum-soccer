@@ -502,8 +502,8 @@ export class GameHUD {
             this.hintTimer = null;
         }
         this.hintTxt.text = hasShotOnce ? "" : this.t(
-            "👆 Toque em um botão azul, arraste\npara trás e solte para lançar!",
-            "👆 Tap a blue piece, drag it\nbackwards and release to shoot!"
+            "👆 Toque em um botão do seu time, arraste\npara trás e solte para lançar!",
+            "👆 Tap one of your pieces, drag it\nbackwards and release to shoot!"
         );
         this.hintPanel.isVisible = !hasShotOnce;
     }

@@ -20,7 +20,6 @@ export class Controller {
 
         this.setupMenuCallbacks();
 
-        // Painel de fim de jogo (estrutura reaproveitada; o novo jogo decide quando disparar)
         this.model.setEndGameCallback((isVisible: boolean) => {
             this.view.showEndGamePanel(isVisible);
         });
@@ -33,17 +32,33 @@ export class Controller {
         this.updateMenuRecord();
     }
 
-    /** Exibe no menu o histórico de partidas salvo pelo jogo. */
+    /** Exibe no menu o histórico de partidas e a maior vitória salva pelo jogo. */
     private updateMenuRecord(): void {
         let wins = 0, losses = 0, draws = 0;
+        let bestMatchScore = "";
         try {
             const raw = localStorage.getItem("momentum_soccer_record");
-            if (raw) ({ wins = 0, losses = 0, draws = 0 } = JSON.parse(raw));
+            if (raw) {
+                const data = JSON.parse(raw);
+                wins = data.wins ?? 0;
+                losses = data.losses ?? 0;
+                draws = data.draws ?? 0;
+                bestMatchScore = data.bestMatchScore ?? "";
+            }
         } catch { /* sem armazenamento: mostra zeros */ }
+        
         const isPT = this.view.getCurrentLanguage() === 0;
-        this.view.updateBestStats(isPT
-            ? `🏆 Vitórias: ${wins} \n Empates: ${draws} | Derrotas: ${losses}`
-            : `🏆 Wins: ${wins} \n Draws: ${draws} | Losses: ${losses}`);
+
+        // Estruturação multilinha limpa e otimizada com quebra de linha
+        const campaignLine = isPT
+            ? `Vitórias: ${wins} | Empates: ${draws} | Derrotas: ${losses}`
+            : `Wins: ${wins} | Draws: ${draws} | Losses: ${losses}`;
+
+        const bestMatchLine = bestMatchScore
+            ? (isPT ? `Recorde: ${bestMatchScore}` : `Best: ${bestMatchScore}`)
+            : (isPT ? `Recorde: N/A` : `Best: N/A`);
+
+        this.view.updateBestStats(`${campaignLine}\n${bestMatchLine}`);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -64,15 +79,22 @@ export class Controller {
             this.launchGame();
         });
 
-        // "Próximo" no painel de fim de jogo: apenas fecha o painel (fluxo do novo jogo definirá o resto)
         this.view.onButtonMenuContinuar(() => this.view.showEndGamePanel(false));
 
         this.view.onButtonMenu(() => this.showMenu());
 
+        // Callback para deletar dados e resetar estatísticas de forma limpa
+        this.view.onButtonResetStats(() => {
+            try {
+                localStorage.removeItem("momentum_soccer_record");
+            } catch { /* erro silencioso */ }
+            this.updateMenuRecord();
+        });
+
         this.view.onToggleMusic(() => {
-            this.model.toggleMusicPlayback(); // Inverte no Model
-            const actualState = this.model.isMusicEnabled(); // Pega o estado real
-            this.view.setMusicIcon(actualState); // Atualiza a View com a verdade
+            this.model.toggleMusicPlayback();
+            const actualState = this.model.isMusicEnabled();
+            this.view.setMusicIcon(actualState);
         });
 
         this.view.onButtonLang(() => this.changeLanguage());
@@ -93,7 +115,7 @@ export class Controller {
     }
 
     private async launchGame(): Promise<void> {
-        if (this.game) return; // já iniciado
+        if (this.game) return;
         this.game = new MomentumSoccerGame(this.scene);
         await this.game.start();
         this.game.setLanguage(this.view.getCurrentLanguage());

@@ -1090,7 +1090,10 @@ export class MomentumSoccerGame {
     private endMatch(): void {
         const outcome = this.playerScore > this.cpuScore ? "win"
             : this.playerScore < this.cpuScore ? "loss" : "draw";
-        this.saveRecord(outcome);
+        
+        // Passamos os gols finais de jogador e CPU para o histórico
+        this.saveRecord(outcome, this.playerScore, this.cpuScore);
+        
         this.enterState("GAMEOVER");
 
         const gameOverTitle = outcome === "win"
@@ -1113,7 +1116,6 @@ export class MomentumSoccerGame {
         this.timeLeft = MomentumSoccerGame.HALF_SECONDS;
         this.lastTimerSecond = -1;
         
-        // Restaura as listas de peças ativas das listas Master (restando expulsões)
         this.playerPieces = [...this.playerPiecesMaster];
         this.cpuPieces = [...this.cpuPiecesMaster];
         this.yellowCards.clear();
@@ -1130,13 +1132,28 @@ export class MomentumSoccerGame {
         this.beginKickoff("player");
     }
 
-    private saveRecord(outcome: "win" | "loss" | "draw"): void {
+    private saveRecord(outcome: "win" | "loss" | "draw", playerG: number, cpuG: number): void {
         try {
             const raw = localStorage.getItem("momentum_soccer_record");
-            const rec = raw ? JSON.parse(raw) : { wins: 0, losses: 0, draws: 0 };
+            const rec = raw ? JSON.parse(raw) : { wins: 0, losses: 0, draws: 0, bestMatchDiff: -999, bestMatchPlayerGoals: 0, bestMatchScore: "" };
+            
             if (outcome === "win") rec.wins = (rec.wins ?? 0) + 1;
             else if (outcome === "loss") rec.losses = (rec.losses ?? 0) + 1;
             else rec.draws = (rec.draws ?? 0) + 1;
+
+            // ── COMPARAÇÃO DE MAIOR VITÓRIA / GOLEADA ──
+            const diff = playerG - cpuG;
+            const prevDiff = rec.bestMatchDiff ?? -999;
+            const prevPlayerGoals = rec.bestMatchPlayerGoals ?? 0;
+
+            // Critério: Maior saldo de gols. Se empatar em saldo, maior gols marcados pelo jogador.
+            if (diff > prevDiff || (diff === prevDiff && playerG > prevPlayerGoals)) {
+                rec.bestMatchDiff = diff;
+                rec.bestMatchPlayerGoals = playerG;
+                // Exibe de forma emblemática as seleções (futuramente dinâmico ao selecionar times)
+                rec.bestMatchScore = `🇧🇷  ${playerG} × ${cpuG}  🇩🇪`;
+            }
+
             localStorage.setItem("momentum_soccer_record", JSON.stringify(rec));
         } catch { /* erro silencioso */ }
     }
