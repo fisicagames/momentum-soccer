@@ -10,7 +10,7 @@ export class LanguageSwitcher {
         this.languageOption = 0;
         this.strings = {
             ButtonLang: ["ENGLISH", "PORTUGUÊS"],
-            TextblockMeta: ["Objetivo: arraste os botões do seu time para lançá-los contra a bola e marcar gols. Cada peça tem uma massa diferente: para o mesmo impulso, peças leves saem rápido e peças pesadas saem devagar (p = m·v).", "Objective: drag your team's pieces to launch them at the ball and score goals. Each piece has a different mass: for the same impulse, light pieces move fast and heavy pieces move slowly (p = m·v)."],
+            TextblockMeta: ["Objetivo: derrote a CPU neste futebol de botão por turnos com 12 toques! Use a física a seu favor: domine o momento linear (p=m·v) e a energia das peças. Vença aliando tática e ciência!", "Objective: defeat the CPU in this turn-based button soccer game with 12 touches! Use physics to your advantage: master linear momentum (p=m·v) and piece energy. Win by combining tactics and science!"],
             TextblockTitle: ["Joule Cup\n2026", "Joule Cup\n2026"],
             ButtonMenuStartA: ["Iniciar", "Start"],
             ButtonMenuStartB: ["Momento Linear", "Linear Momentum"],

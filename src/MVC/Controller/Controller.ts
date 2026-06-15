@@ -42,8 +42,8 @@ export class Controller {
         } catch { /* sem armazenamento: mostra zeros */ }
         const isPT = this.view.getCurrentLanguage() === 0;
         this.view.updateBestStats(isPT
-            ? `🏆 Vitórias: ${wins} | Empates: ${draws} | Derrotas: ${losses}`
-            : `🏆 Wins: ${wins} | Draws: ${draws} | Losses: ${losses}`);
+            ? `🏆 Vitórias: ${wins} \n Empates: ${draws} | Derrotas: ${losses}`
+            : `🏆 Wins: ${wins} \n Draws: ${draws} | Losses: ${losses}`);
     }
 
     // ══════════════════════════════════════════════════════════════════════
