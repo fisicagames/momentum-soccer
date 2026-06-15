@@ -34,8 +34,14 @@ export class LanguageSwitcher {
 
                 if (control instanceof TextBlock) {
                     control.text = translations[this.languageOption];
-                } else if (control instanceof Button && control.textBlock) {
-                    control.textBlock.text = translations[this.languageOption];
+                } else if (control instanceof Button) {
+                    // Resolve o bug do JSON buscando o bloco de texto internamente nos filhos do botão
+                    const textBlock = control.textBlock || 
+                        (control.children && control.children.find(c => c instanceof TextBlock || c.name === "Button_button")) as TextBlock;
+                    
+                    if (textBlock) {
+                        textBlock.text = translations[this.languageOption];
+                    }
                 }
             }
         }
