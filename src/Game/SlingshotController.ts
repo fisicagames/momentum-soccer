@@ -185,6 +185,14 @@ export class SlingshotController {
 
     private onPointerMove(): void {
         if (!this.aimingPiece) return;
+
+        // TRAVA DE SEGURANÇA: Se as condições de mira do jogo mudarem durante o arrasto
+        // (ex: estouro de turnos ou tempo esgotado), cancela a mira imediatamente e limpa a HUD.
+        if (!this.opts.canAim()) {
+            this.cancelAim();
+            return;
+        }
+
         // Com o pointer capture do arrasto, "pointerleave" não dispara: a
         // saída do canvas é detectada pelas próprias coordenadas do ponteiro
         const canvas = this.scene.getEngine().getRenderingCanvas()!;
