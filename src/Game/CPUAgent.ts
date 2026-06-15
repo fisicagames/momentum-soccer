@@ -35,10 +35,15 @@ export class CPUAgent {
         let shootAtGoal = goalPathClear || game.getTeamTouchesLeft() <= 4 || randomShotRisk;
 
         // Alvo final do disparo: o gol ou o companheiro livre mais avançado
+        // Alvo final do disparo: o gol ou o companheiro livre mais avançado
         let target = playerGoal.clone();
         if (!shootAtGoal) {
             let bestMate: Piece | null = null;
             let bestMateScore = -Infinity;
+            
+            // Detecta se a bola está posicionada de forma profunda nas alas (área de cruzamento)
+            const isCrossingSituation = Math.abs(ballPos.z) > Arena.GOAL_LINE_Z - 1.2;
+
             for (const mate of game.getCpuPieces()) {
                 const matePos = mate.mesh.position;
                 const dist = Vector3.Distance(matePos, ballPos);
@@ -46,7 +51,19 @@ export class CPUAgent {
                 const blocked = CPUAgent.isCorridorBlocked(game, ballPos, matePos, ball.radius, [ball.mesh, mate.mesh]);
                 const advance = ballPos.z - matePos.z; // avanço em direção ao gol do jogador (-Z)
                 
-                const score = (blocked ? 0 : 2.0) + advance * 0.15 - dist * 0.08;
+                let advanceScore = advance * 0.15;
+                if (isCrossingSituation) {
+                    // Em situação de cruzamento ou escanteio, prioriza companheiros posicionados na grande área adversária
+                    const inBoxX = Math.abs(matePos.x) < 2.5;
+                    const inBoxZ = matePos.z < -3.0 && matePos.z > -7.0; // Área de finalização na defesa do jogador (-Z)
+                    if (inBoxX && inBoxZ) {
+                        advanceScore = 1.0; // Bônus tático alto para receber o cruzamento de cabeça/chute
+                    } else {
+                        advanceScore = -0.5; // Penaliza passes curtos inócuos próximos à lateral de fundo
+                    }
+                }
+
+                const score = (blocked ? 0 : 2.0) + advanceScore - dist * 0.08;
                 if (score > bestMateScore) {
                     bestMateScore = score;
                     bestMate = mate;
@@ -117,6 +134,14 @@ export class CPUAgent {
             // Força um impulso mínimo de 2.5 para evitar "micro-toques" e empurrar a bola com firmeza
             impulse = Math.min(m * Math.max(vPiece, 1.4), MomentumSoccerGame.MAX_IMPULSE);
             impulse = Math.max(impulse, 2.5); 
+        }
+        
+        // ── REDUÇÃO DE INTENSIDADE PARA 1/3 NO ESCANTEIO ──
+        // Detecta se a bola está posicionada em um dos cantos de fundo do campo (zona de escanteio)
+        const isCornerKick = Math.abs(ballPos.z) > Arena.GOAL_LINE_Z - 1.0 && Math.abs(ballPos.x) > Arena.FIELD_W / 2 - 1.0;
+        if (isCornerKick) {
+            // Reduz para 1/3 da intensidade (máximo de 6.0), com piso mínimo de 2.0 para cruzamentos bem distribuídos
+            impulse = Math.max(impulse * (1 / 3), 2.0);
         }
         
         // Capping estrito de segurança pela energia restante do botão: K = J²/(2m) <= E

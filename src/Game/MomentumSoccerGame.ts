@@ -972,6 +972,34 @@ export class MomentumSoccerGame {
 
                 this.teleport(this.ball.mesh, ballPos, this.ball.aggregate);
 
+                // ── BARREIRA DE DISTÂNCIA MÍNIMA REGULAMENTAR (Corner Kick Barrier) ──
+                const MIN_DIST = 1.6; // m (distância regulamentar da barreira para liberar o corredor)
+                const allPieces = [...this.playerPieces, ...this.cpuPieces];
+                for (const p of allPieces) {
+                    if (p === nearestPiece) continue;
+
+                    const distToBall = Vector3.Distance(p.mesh.position, ballPos);
+                    if (distToBall < MIN_DIST) {
+                        const pushDir = dirToCenter.clone();
+                        const relPos = p.mesh.position.subtract(ballPos);
+                        relPos.y = 0;
+                        if (relPos.length() > 0.1) {
+                            relPos.normalize();
+                            pushDir.addInPlace(relPos).normalize();
+                        }
+                        
+                        // Posiciona o botão defensor respeitando a distância da barreira
+                        const newPos = ballPos.add(pushDir.scale(MIN_DIST + p.spec.radius));
+                        newPos.y = p.mesh.position.y;
+                        
+                        // Garante que a peça empurrada não atravesse os limites do campo
+                        const maxW = Arena.FIELD_W / 2 - p.spec.radius - 0.05;
+                        newPos.x = Math.max(-maxW, Math.min(maxW, newPos.x));
+                        
+                        this.teleport(p.mesh, newPos, p.aggregate);
+                    }
+                }
+
                 this.possession = attackingTeam;
                 this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
                 this.refillEnergy();
