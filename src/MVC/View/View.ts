@@ -84,7 +84,7 @@ export class View implements IView {
         // Se o menu inicial estiver ativo (true), o botão home deve sumir (false) e vice-versa
         this.buttonMenu.isVisible = !isVisible;
         
-        // Failsafes para evitar sobreposição de elementos obsoletos
+        // Failsafes para evitar sobreposição de elementos obsoletos de jogos anteriores
         const rectangleTop = this.advancedTexture.getControlByName("RectangleTop");
         if (rectangleTop) rectangleTop.isVisible = !isVisible;
         
