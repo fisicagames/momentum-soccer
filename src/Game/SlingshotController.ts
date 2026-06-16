@@ -107,13 +107,6 @@ export class SlingshotController {
     }
 
     /**
-     * Retorna o estado atual de mira e arraste (inclui direção e intensidade).
-     */
-    public get currentAim(): AimState | null {
-        return this.aim;
-    }
-
-    /**
      * Cancela imediatamente qualquer mira ou arrasto ativo.
      * Failsafe para evitar estados corrompidos por transições externas de turnos ou reinicializações.
      */

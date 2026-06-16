@@ -197,37 +197,6 @@ export class MomentumSoccerGame {
                 if (d < best) { best = d; nearest = p.mesh.position; }
             }
             this._tmp.copyFrom(ballPos).addInPlace(nearest).scaleInPlace(0.5);
-
-            // ── COMPENSAÇÃO DE ARRASTE DINÂMICA NAS BORDAS (Border Drag Camera Panning) ──
-            // Se o jogador estiver ativamente mirando, e a peça estiver próxima às bordas 
-            // laterais ou de fundo, desloca o alvo da câmera na direção do arraste.
-            // Em regiões centrais do campo, o fator de borda é 0 e a câmera permanece estável.
-            if (this.slingshot && this.slingshot.isAiming) {
-                const aim = this.slingshot.currentAim;
-                if (aim) {
-                    const piecePos = aim.piece.mesh.position;
-                    
-                    // Margem de ativação das pontas laterais (X)
-                    const startX = 2.0;
-                    const spanX = Arena.FIELD_W / 2 - startX;
-                    const f_x = Math.max(0, (Math.abs(piecePos.x) - startX) / spanX);
-
-                    // Margem de ativação das pontas de fundo (Z)
-                    const startZ = 5.0;
-                    const spanZ = Arena.GOAL_LINE_Z - startZ;
-                    const f_z = Math.max(0, (Math.abs(piecePos.z) - startZ) / spanZ);
-
-                    // Fator final de borda clamped entre [0.0, 1.0]
-                    const f_border = Math.min(1.0, Math.max(f_x, f_z));
-
-                    if (f_border > 0) {
-                        // Aplica o deslocamento de forma proporcional à proximidade da borda
-                        this._tmp2.copyFrom(aim.direction).scaleInPlace(aim.impulse * -0.15 * f_border);
-                        this._tmp.addInPlace(this._tmp2);
-                    }
-                }
-            }
-
             target.x += (this._tmp.x - target.x) * 0.06;
             target.z += (this._tmp.z - target.z) * 0.06;
         } else {
