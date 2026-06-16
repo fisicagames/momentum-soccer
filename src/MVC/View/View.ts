@@ -259,10 +259,11 @@ export class View implements IView {
         label.color = "#9FD4FF";
         label.fontSize = 12;
         label.fontWeight = "bold";
-        label.height = "20px"; // Altura delimitada
+        label.height = "20px";
         label.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        label.isHitTestVisible = false; // Impede que o label bloqueie cliques de elementos próximos
         rowContainer.addControl(label);
 
         const selectorContainer = new Rectangle();
@@ -272,7 +273,8 @@ export class View implements IView {
         selectorContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
         rowContainer.addControl(selectorContainer);
 
-        const btnPrev = Button.CreateSimpleButton("btnPrev", "◀");
+        // Botão Esquerdo (Prev) - Nome único e evento onPointerClick
+        const btnPrev = Button.CreateSimpleButton(`${parent.name}_btnPrev`, "◀");
         btnPrev.width = "40px";
         btnPrev.height = "36px";
         btnPrev.color = "#FFD24A";
@@ -280,21 +282,28 @@ export class View implements IView {
         btnPrev.cornerRadius = 6;
         btnPrev.thickness = 1;
         btnPrev.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        btnPrev.onPointerUpObservable.add(onPrev);
+        btnPrev.onPointerClickObservable.add(onPrev); // Modificado para Clique robusto
         selectorContainer.addControl(btnPrev);
 
+        // Bloco de Texto central de exibição da Seleção
         const valueTxt = new TextBlock();
         const team = getCurrentTeam();
         valueTxt.text = `${team.flag}  ${this.languageSwitcher.getCurrentLanguage() === 0 ? team.namePt : team.nameEn}`;
         valueTxt.color = "white";
         valueTxt.fontSize = 15;
         valueTxt.fontWeight = "bold";
-        valueTxt.height = "36px"; // Altura delimitada
+        valueTxt.height = "36px";
         valueTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         valueTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        
+        // ── SOLUÇÃO DO BUG: Torna o texto invisível para detecção de cliques ──
+        // Isso permite que o ponteiro do mouse "atravesse" o texto e atinja o botão btnPrev por baixo.
+        valueTxt.isHitTestVisible = false; 
+        
         selectorContainer.addControl(valueTxt);
 
-        const btnNext = Button.CreateSimpleButton("btnNext", "▶");
+        // Botão Direito (Next) - Nome único e evento onPointerClick
+        const btnNext = Button.CreateSimpleButton(`${parent.name}_btnNext`, "▶");
         btnNext.width = "40px";
         btnNext.height = "36px";
         btnNext.color = "#FFD24A";
@@ -302,7 +311,7 @@ export class View implements IView {
         btnNext.cornerRadius = 6;
         btnNext.thickness = 1;
         btnNext.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        btnNext.onPointerUpObservable.add(onNext);
+        btnNext.onPointerClickObservable.add(onNext); // Modificado para Clique robusto
         selectorContainer.addControl(btnNext);
 
         return { label, value: valueTxt };
