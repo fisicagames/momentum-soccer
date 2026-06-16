@@ -132,19 +132,55 @@ export class GameHUD {
         this.turnTxt.isHitTestVisible = false;
         this.topBar.addControl(this.turnTxt);
 
+        // ── BOTÕES DE COMANDO (Restart & Exit Condicional) ──
+        // Verifica se o jogo está rodando no seu próprio portal
+        const isFisicaGames = window.location.hostname.includes("fisicagames.com.br");
+
+        // Botão de reiniciar (Sempre visível)
         this.restartBtn = Button.CreateSimpleButton("restart", "↺");
-        this.restartBtn.width = "30px";
-        this.restartBtn.height = "30px";
+        this.restartBtn.width = "20px";
+        this.restartBtn.height = "20px";
         this.restartBtn.cornerRadius = 15;
         this.restartBtn.color = "white";
         this.restartBtn.background = "#444455";
-        this.restartBtn.fontSize = 16;
+        this.restartBtn.fontSize = 14;
         this.restartBtn.thickness = 0;
         this.restartBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
         this.restartBtn.left = "-8px";
-        this.restartBtn.isHitTestVisible = true; // Botão precisa registrar o clique!
+        
+        // Se a saída estiver ativa, desloca o restart ligeiramente para baixo.
+        // Caso contrário, centraliza verticalmente na barra (0px) para manter a simetria em outros portais.
+        if (isFisicaGames) {
+            this.restartBtn.top = "15px";
+        } else {
+            this.restartBtn.top = "0px"; // Centralização vertical perfeita em portais terceiros
+        }
+
+        this.restartBtn.isHitTestVisible = true;
         this.restartBtn.onPointerClickObservable.add(onRestart);
         this.topBar.addControl(this.restartBtn);
+
+        // Botão de fechar (Apenas no seu domínio, posicionado com maior distanciamento acima)
+        if (isFisicaGames) {
+            const exitBtn = Button.CreateSimpleButton("exit", "✕");
+            exitBtn.width = "20px";
+            exitBtn.height = "20px";
+            exitBtn.cornerRadius = 15;
+            exitBtn.color = "white";
+            exitBtn.background = "#444455";
+            exitBtn.fontSize = 14;
+            exitBtn.thickness = 0;
+            exitBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+            exitBtn.left = "-8px";
+            exitBtn.top = "-24px"; // Aumentado o afastamento para separar visualmente as duas esferas
+            exitBtn.isHitTestVisible = true;
+            
+            exitBtn.onPointerClickObservable.add(() => {
+                window.history.back();
+            });
+            this.topBar.addControl(exitBtn);
+        }
+
 
         // Indicador visual dos 12 toques
         this.touchesDotsTxt = new TextBlock("touchesDots", "");
