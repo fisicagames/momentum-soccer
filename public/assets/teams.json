@@ -1,24 +1,26 @@
 {
-  "brazil": {
-    "id": "brazil",
-    "namePt": "Brasil",
-    "nameEn": "Brazil",
-    "flag": "🇧🇷",
+  "algeria": {
+    "id": "algeria",
+    "namePt": "Argélia",
+    "nameEn": "Algeria",
+    "flag": "🇩🇿",
+    "confederation": "CAF",
     "colors": {
-      "base": { "r": 0.95, "g": 0.78, "b": 0.05 },
-      "secondary": { "r": 0.05, "g": 0.45, "b": 0.15 },
-      "knob": { "r": 0.08, "g": 0.25, "b": 0.70 }
-    }
-  },
-  "germany": {
-    "id": "germany",
-    "namePt": "Alemanha",
-    "nameEn": "Germany",
-    "flag": "🇩🇪",
-    "colors": {
-      "base": { "r": 0.12, "g": 0.12, "b": 0.12 },
-      "secondary": { "r": 0.80, "g": 0.12, "b": 0.12 },
-      "knob": { "r": 0.95, "g": 0.78, "b": 0.05 }
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
     }
   },
   "argentina": {
@@ -26,10 +28,407 @@
     "namePt": "Argentina",
     "nameEn": "Argentina",
     "flag": "🇦🇷",
+    "confederation": "CONMEBOL",
     "colors": {
-      "base": { "r": 0.35, "g": 0.65, "b": 0.88 },
-      "secondary": { "r": 0.96, "g": 0.96, "b": 0.96 },
-      "knob": { "r": 0.95, "g": 0.78, "b": 0.05 }
+      "base": {
+        "r": 0.35,
+        "g": 0.68,
+        "b": 0.9
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.06,
+        "g": 0.2,
+        "b": 0.55
+      }
+    }
+  },
+  "australia": {
+    "id": "australia",
+    "namePt": "Austrália",
+    "nameEn": "Australia",
+    "flag": "🇦🇺",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.07,
+        "g": 0.15,
+        "b": 0.38
+      },
+      "secondary": {
+        "r": 0.9,
+        "g": 0.72,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      }
+    }
+  },
+  "austria": {
+    "id": "austria",
+    "namePt": "Áustria",
+    "nameEn": "Austria",
+    "flag": "🇦🇹",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "belgium": {
+    "id": "belgium",
+    "namePt": "Bélgica",
+    "nameEn": "Belgium",
+    "flag": "🇧🇪",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "knob": {
+        "r": 0.95,
+        "g": 0.78,
+        "b": 0.05
+      }
+    }
+  },
+  "bosnia_and_herzegovina": {
+    "id": "bosnia_and_herzegovina",
+    "namePt": "Bósnia e Herzegovina",
+    "nameEn": "Bosnia and Herzegovina",
+    "flag": "🇧🇦",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.25,
+        "b": 0.7
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      }
+    }
+  },
+  "brazil": {
+    "id": "brazil",
+    "namePt": "Brasil",
+    "nameEn": "Brazil",
+    "flag": "🇧🇷",
+    "confederation": "CONMEBOL",
+    "colors": {
+      "base": {
+        "r": 0.95,
+        "g": 0.78,
+        "b": 0.05
+      },
+      "secondary": {
+        "r": 0.05,
+        "g": 0.45,
+        "b": 0.15
+      },
+      "knob": {
+        "r": 0.08,
+        "g": 0.25,
+        "b": 0.7
+      }
+    }
+  },
+  "cabo_verde": {
+    "id": "cabo_verde",
+    "namePt": "Cabo Verde",
+    "nameEn": "Cabo Verde",
+    "flag": "🇨🇻",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.55
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "canada": {
+    "id": "canada",
+    "namePt": "Canadá",
+    "nameEn": "Canada",
+    "flag": "🇨🇦",
+    "confederation": "CONCACAF",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.08,
+        "b": 0.08
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.15,
+        "g": 0.15,
+        "b": 0.15
+      }
+    }
+  },
+  "colombia": {
+    "id": "colombia",
+    "namePt": "Colômbia",
+    "nameEn": "Colombia",
+    "flag": "🇨🇴",
+    "confederation": "CONMEBOL",
+    "colors": {
+      "base": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.6
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "congo_dr": {
+    "id": "congo_dr",
+    "namePt": "Congo DR",
+    "nameEn": "DR Congo",
+    "flag": "🇨🇩",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.25,
+        "b": 0.7
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "cote_d_ivoire": {
+    "id": "cote_d_ivoire",
+    "namePt": "Costa do Marfim",
+    "nameEn": "Côte d'Ivoire",
+    "flag": "🇨🇮",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.95,
+        "g": 0.55,
+        "b": 0.08
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      }
+    }
+  },
+  "croatia": {
+    "id": "croatia",
+    "namePt": "Croácia",
+    "nameEn": "Croatia",
+    "flag": "🇭🇷",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.78,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.25,
+        "b": 0.65
+      }
+    }
+  },
+  "curacao": {
+    "id": "curacao",
+    "namePt": "Curaçao",
+    "nameEn": "Curaçao",
+    "flag": "🇨🇼",
+    "confederation": "CONCACAF",
+    "colors": {
+      "base": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.6
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "czechia": {
+    "id": "czechia",
+    "namePt": "Tchéquia",
+    "nameEn": "Czechia",
+    "flag": "🇨🇿",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "secondary": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.25,
+        "b": 0.7
+      }
+    }
+  },
+  "ecuador": {
+    "id": "ecuador",
+    "namePt": "Equador",
+    "nameEn": "Ecuador",
+    "flag": "🇪🇨",
+    "confederation": "CONMEBOL",
+    "colors": {
+      "base": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.6
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "egypt": {
+    "id": "egypt",
+    "namePt": "Egito",
+    "nameEn": "Egypt",
+    "flag": "🇪🇬",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.78,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "england": {
+    "id": "england",
+    "namePt": "Inglaterra",
+    "nameEn": "England",
+    "flag": "🏴",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "secondary": {
+        "r": 0.82,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.08,
+        "g": 0.16,
+        "b": 0.4
+      }
     }
   },
   "france": {
@@ -37,21 +436,527 @@
     "namePt": "França",
     "nameEn": "France",
     "flag": "🇫🇷",
+    "confederation": "UEFA",
     "colors": {
-      "base": { "r": 0.05, "g": 0.15, "b": 0.45 },
-      "secondary": { "r": 0.85, "g": 0.10, "b": 0.10 },
-      "knob": { "r": 0.96, "g": 0.96, "b": 0.96 }
+      "base": {
+        "r": 0.05,
+        "g": 0.15,
+        "b": 0.45
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.82,
+        "g": 0.1,
+        "b": 0.1
+      }
     }
   },
-  "italy": {
-    "id": "italy",
-    "namePt": "Itália",
-    "nameEn": "Italy",
-    "flag": "🇮🇹",
+  "germany": {
+    "id": "germany",
+    "namePt": "Alemanha",
+    "nameEn": "Germany",
+    "flag": "🇩🇪",
+    "confederation": "UEFA",
     "colors": {
-      "base": { "r": 0.05, "g": 0.32, "b": 0.72 },
-      "secondary": { "r": 0.10, "g": 0.55, "b": 0.25 },
-      "knob": { "r": 0.96, "g": 0.96, "b": 0.96 }
+      "base": {
+        "r": 0.95,
+        "g": 0.95,
+        "b": 0.95
+      },
+      "secondary": {
+        "r": 0.1,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "ghana": {
+    "id": "ghana",
+    "namePt": "Gana",
+    "nameEn": "Ghana",
+    "flag": "🇬🇭",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      }
+    }
+  },
+  "haiti": {
+    "id": "haiti",
+    "namePt": "Haiti",
+    "nameEn": "Haiti",
+    "flag": "🇭🇹",
+    "confederation": "CONCACAF",
+    "colors": {
+      "base": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.6
+      },
+      "secondary": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "knob": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      }
+    }
+  },
+  "iran": {
+    "id": "iran",
+    "namePt": "Irã",
+    "nameEn": "Iran",
+    "flag": "🇮🇷",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "iraq": {
+    "id": "iraq",
+    "namePt": "Iraque",
+    "nameEn": "Iraq",
+    "flag": "🇮🇶",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "japan": {
+    "id": "japan",
+    "namePt": "Japão",
+    "nameEn": "Japan",
+    "flag": "🇯🇵",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "secondary": {
+        "r": 0.82,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.1,
+        "b": 0.1
+      }
+    }
+  },
+  "jordan": {
+    "id": "jordan",
+    "namePt": "Jordânia",
+    "nameEn": "Jordan",
+    "flag": "🇯🇴",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "korea_republic": {
+    "id": "korea_republic",
+    "namePt": "Coreia do Sul",
+    "nameEn": "Korea Republic",
+    "flag": "🇰🇷",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "secondary": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.25,
+        "b": 0.7
+      }
+    }
+  },
+  "mexico": {
+    "id": "mexico",
+    "namePt": "México",
+    "nameEn": "Mexico",
+    "flag": "🇲🇽",
+    "confederation": "CONCACAF",
+    "colors": {
+      "base": {
+        "r": 0.08,
+        "g": 0.45,
+        "b": 0.18
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.75,
+        "g": 0.1,
+        "b": 0.1
+      }
+    }
+  },
+  "morocco": {
+    "id": "morocco",
+    "namePt": "Marrocos",
+    "nameEn": "Morocco",
+    "flag": "🇲🇦",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.78,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "knob": {
+        "r": 0.85,
+        "g": 0.7,
+        "b": 0.1
+      }
+    }
+  },
+  "netherlands": {
+    "id": "netherlands",
+    "namePt": "Países Baixos",
+    "nameEn": "Netherlands",
+    "flag": "🇳🇱",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.95,
+        "g": 0.45,
+        "b": 0.05
+      },
+      "secondary": {
+        "r": 0.07,
+        "g": 0.15,
+        "b": 0.35
+      },
+      "knob": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      }
+    }
+  },
+  "new_zealand": {
+    "id": "new_zealand",
+    "namePt": "Nova Zelândia",
+    "nameEn": "New Zealand",
+    "flag": "🇳🇿",
+    "confederation": "OFC",
+    "colors": {
+      "base": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.75,
+        "g": 0.75,
+        "b": 0.75
+      }
+    }
+  },
+  "norway": {
+    "id": "norway",
+    "namePt": "Noruega",
+    "nameEn": "Norway",
+    "flag": "🇳🇴",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.55
+      }
+    }
+  },
+  "panama": {
+    "id": "panama",
+    "namePt": "Panamá",
+    "nameEn": "Panama",
+    "flag": "🇵🇦",
+    "confederation": "CONCACAF",
+    "colors": {
+      "base": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "secondary": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "knob": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.55
+      }
+    }
+  },
+  "paraguay": {
+    "id": "paraguay",
+    "namePt": "Paraguai",
+    "nameEn": "Paraguay",
+    "flag": "🇵🇾",
+    "confederation": "CONMEBOL",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.55
+      }
+    }
+  },
+  "portugal": {
+    "id": "portugal",
+    "namePt": "Portugal",
+    "nameEn": "Portugal",
+    "flag": "🇵🇹",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.75,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.9,
+        "g": 0.7,
+        "b": 0.1
+      }
+    }
+  },
+  "qatar": {
+    "id": "qatar",
+    "namePt": "Catar",
+    "nameEn": "Qatar",
+    "flag": "🇶🇦",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.5,
+        "g": 0.1,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.72,
+        "g": 0.6,
+        "b": 0.6
+      }
+    }
+  },
+  "saudi_arabia": {
+    "id": "saudi_arabia",
+    "namePt": "Arábia Saudita",
+    "nameEn": "Saudi Arabia",
+    "flag": "🇸🇦",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.85,
+        "g": 0.7,
+        "b": 0.1
+      }
+    }
+  },
+  "scotland": {
+    "id": "scotland",
+    "namePt": "Escócia",
+    "nameEn": "Scotland",
+    "flag": "🏴",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.55
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.1,
+        "b": 0.2
+      }
+    }
+  },
+  "senegal": {
+    "id": "senegal",
+    "namePt": "Senegal",
+    "nameEn": "Senegal",
+    "flag": "🇸🇳",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "south_africa": {
+    "id": "south_africa",
+    "namePt": "África do Sul",
+    "nameEn": "South Africa",
+    "flag": "🇿🇦",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
     }
   },
   "spain": {
@@ -59,10 +964,191 @@
     "namePt": "Espanha",
     "nameEn": "Spain",
     "flag": "🇪🇸",
+    "confederation": "UEFA",
     "colors": {
-      "base": { "r": 0.72, "g": 0.10, "b": 0.10 },
-      "secondary": { "r": 0.95, "g": 0.78, "b": 0.05 },
-      "knob": { "r": 0.08, "g": 0.25, "b": 0.55 }
+      "base": {
+        "r": 0.78,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.95,
+        "g": 0.78,
+        "b": 0.1
+      },
+      "knob": {
+        "r": 0.08,
+        "g": 0.2,
+        "b": 0.5
+      }
+    }
+  },
+  "sweden": {
+    "id": "sweden",
+    "namePt": "Suécia",
+    "nameEn": "Sweden",
+    "flag": "🇸🇪",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.95,
+        "g": 0.8,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.1,
+        "g": 0.25,
+        "b": 0.7
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.1,
+        "b": 0.2
+      }
+    }
+  },
+  "switzerland": {
+    "id": "switzerland",
+    "namePt": "Suíça",
+    "nameEn": "Switzerland",
+    "flag": "🇨🇭",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.1,
+        "b": 0.1
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "tunisia": {
+    "id": "tunisia",
+    "namePt": "Tunísia",
+    "nameEn": "Tunisia",
+    "flag": "🇹🇳",
+    "confederation": "CAF",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.15,
+        "g": 0.15,
+        "b": 0.15
+      }
+    }
+  },
+  "turkiye": {
+    "id": "turkiye",
+    "namePt": "Turquia",
+    "nameEn": "Türkiye",
+    "flag": "🇹🇷",
+    "confederation": "UEFA",
+    "colors": {
+      "base": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      }
+    }
+  },
+  "uruguay": {
+    "id": "uruguay",
+    "namePt": "Uruguai",
+    "nameEn": "Uruguay",
+    "flag": "🇺🇾",
+    "confederation": "CONMEBOL",
+    "colors": {
+      "base": {
+        "r": 0.35,
+        "g": 0.68,
+        "b": 0.9
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.12,
+        "g": 0.12,
+        "b": 0.12
+      }
+    }
+  },
+  "usa": {
+    "id": "usa",
+    "namePt": "Estados Unidos",
+    "nameEn": "United States",
+    "flag": "🇺🇸",
+    "confederation": "CONCACAF",
+    "colors": {
+      "base": {
+        "r": 0.07,
+        "g": 0.15,
+        "b": 0.38
+      },
+      "secondary": {
+        "r": 0.8,
+        "g": 0.12,
+        "b": 0.12
+      },
+      "knob": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      }
+    }
+  },
+  "uzbekistan": {
+    "id": "uzbekistan",
+    "namePt": "Uzbequistão",
+    "nameEn": "Uzbekistan",
+    "flag": "🇺🇿",
+    "confederation": "AFC",
+    "colors": {
+      "base": {
+        "r": 0.08,
+        "g": 0.25,
+        "b": 0.7
+      },
+      "secondary": {
+        "r": 0.96,
+        "g": 0.96,
+        "b": 0.96
+      },
+      "knob": {
+        "r": 0.1,
+        "g": 0.5,
+        "b": 0.2
+      }
     }
   }
 }
