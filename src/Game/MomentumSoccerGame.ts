@@ -1276,8 +1276,8 @@ export class MomentumSoccerGame {
 
     /**
      * Executa um fragmento específico do áudio de apitos com base no evento de jogo.
-     * Envolvido por blocos try-catch (Failsafe) para garantir que falhas ou bloqueios
-     * de áudio dos navegadores nunca interrompam as transições e elementos visuais da HUD.
+     * Envolvido por blocos try-catch (Failsafe) e mapeado exclusivamente com offsets
+     * ativos garantidos para evitar silêncio devido a cortes de compressão do MP3.
      */
     private playWhistle(type: "kickoff" | "halftime" | "fulltime" | "goal" | "yellow_card" | "play_restart"): void {
         if (!this.whistleSound) return;
@@ -1303,29 +1303,31 @@ export class MomentumSoccerGame {
                 break;
             case "fulltime":
                 // Clássico sinal de fim de partida da arbitragem: dois sopros curtos rápidos e um longo final
+                // Utiliza os offsets 4.20 (curto) e 6.60 (longo) que são 100% funcionais no MP3
                 try {
-                    this.whistleSound.play({ startOffset: 8.40, duration: 0.15 });
+                    this.whistleSound.play({ startOffset: 4.20, duration: 0.20 });
                     setTimeout(() => {
                         try {
                             this.whistleSound?.stop();
-                            this.whistleSound?.play({ startOffset: 8.40, duration: 0.15 });
+                            this.whistleSound?.play({ startOffset: 4.20, duration: 0.20 });
                         } catch (e) { /* failsafe silencioso */ }
                     }, 300);
                     setTimeout(() => {
                         try {
                             this.whistleSound?.stop();
-                            this.whistleSound?.play({ startOffset: 18.20, duration: 0.65 });
+                            this.whistleSound?.play({ startOffset: 6.60, duration: 0.75 });
                         } catch (e) { /* failsafe silencioso */ }
                     }, 600);
-                } catch (e) { /* failsafe silencioso */ }
+                } catch (e) { /* failsafe */ }
                 return; // Enfileiramento concluído de forma segura
             case "goal":
                 startOffset = 9.80;
                 duration = 0.60;
                 break;
             case "yellow_card":
-                startOffset = 8.40;
-                duration = 0.15;
+                // Utiliza o offset 4.20 (curto/agudo) garantido no arquivo de áudio
+                startOffset = 4.20;
+                duration = 0.35;
                 break;
             case "play_restart":
                 startOffset = 4.20;
@@ -1336,7 +1338,6 @@ export class MomentumSoccerGame {
         try {
             this.whistleSound.play({ startOffset, duration });
         } catch (error) {
-            // Emite um aviso no console de desenvolvimento, mas deixa o fluxo do jogo continuar
             console.warn(`MomentumSoccerGame: Falha ao reproduzir áudio de apito (${type}).`, error);
         }
     }
