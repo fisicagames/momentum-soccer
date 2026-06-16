@@ -121,6 +121,10 @@ export class MomentumSoccerGame {
     private readonly _tmp = Vector3.Zero();
     private readonly _tmp2 = Vector3.Zero();
 
+    // Adicione estes métodos públicos na classe MomentumSoccerGame
+    public getPlayerScore(): number { return this.playerScore; }
+    public getCpuScore(): number { return this.cpuScore; }
+
     constructor(scene: Scene) {
         this.scene = scene;
     }
