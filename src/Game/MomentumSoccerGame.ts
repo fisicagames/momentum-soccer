@@ -190,6 +190,20 @@ export class MomentumSoccerGame {
                 if (d < best) { best = d; nearest = p.mesh.position; }
             }
             this._tmp.copyFrom(ballPos).addInPlace(nearest).scaleInPlace(0.5);
+
+            // ── COMPENSAÇÃO DE ARRASTE DINÂMICA DA CÂMERA (Dynamic Drag Camera Panning) ──
+            // Se o jogador estiver ativamente arrastando a mira, desloca o alvo da câmera 
+            // na direção oposta ao chute (direção do dedo do jogador). Isso move a quadra e cria 
+            // espaço de tela de forma orgânica para que o arraste completo possa ser realizado.
+            if (this.slingshot && this.slingshot.isAiming) {
+                const aim = this.slingshot.currentAim;
+                if (aim) {
+                    // Desloca o foco da câmera na direção do dedo (-0.15m por unidade de impulso)
+                    this._tmp2.copyFrom(aim.direction).scaleInPlace(aim.impulse * -0.15);
+                    this._tmp.addInPlace(this._tmp2);
+                }
+            }
+
             target.x += (this._tmp.x - target.x) * 0.06;
             target.z += (this._tmp.z - target.z) * 0.06;
         } else {
