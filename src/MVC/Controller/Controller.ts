@@ -32,7 +32,6 @@ export class Controller {
         this.updateMenuRecord();
     }
 
-    /** Exibe no menu o histórico de partidas e a maior vitória salva pelo jogo. */
     private updateMenuRecord(): void {
         let wins = 0, losses = 0, draws = 0;
         let bestMatchScore = "";
@@ -49,7 +48,6 @@ export class Controller {
         
         const isPT = this.view.getCurrentLanguage() === 0;
 
-        // Estruturação multilinha limpa e otimizada com quebra de linha
         const campaignLine = isPT
             ? `Vitórias: ${wins} | Empates: ${draws} | Derrotas: ${losses}`
             : `Wins: ${wins} | Draws: ${draws} | Losses: ${losses}`;
@@ -61,29 +59,50 @@ export class Controller {
         this.view.updateBestStats(`${campaignLine}\n${bestMatchLine}`);
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    //  MÉTODOS DE UI E FLUXO DO JOGO
-    // ══════════════════════════════════════════════════════════════════════
     private setupMenuCallbacks() {
+        // Coerção segura de tipo (any) para evitar quebra de contratos rígidos em IView.ts
+        const viewSelection = this.view as any;
+
         this.view.onButtonMenuStartA(() => {
-            this.view.hideMenuPanel();
-            this.launchGame();
+            if (typeof viewSelection.showTeamSelection === "function") {
+                viewSelection.showTeamSelection((playerTeamId: string, cpuTeamId: string) => {
+                    this.view.hideMenuPanel();
+                    this.launchGame(playerTeamId, cpuTeamId);
+                });
+            } else {
+                this.view.hideMenuPanel();
+                this.launchGame();
+            }
         });
 
         this.view.onButtonMenuStartB(() => {
-            this.view.hideMenuPanel();
-            this.launchGame();
+            if (typeof viewSelection.showTeamSelection === "function") {
+                viewSelection.showTeamSelection((playerTeamId: string, cpuTeamId: string) => {
+                    this.view.hideMenuPanel();
+                    this.launchGame(playerTeamId, cpuTeamId);
+                });
+            } else {
+                this.view.hideMenuPanel();
+                this.launchGame();
+            }
         });
+
         this.view.onButtonMenuStartC(() => {
-            this.view.hideMenuPanel();
-            this.launchGame();
+            if (typeof viewSelection.showTeamSelection === "function") {
+                viewSelection.showTeamSelection((playerTeamId: string, cpuTeamId: string) => {
+                    this.view.hideMenuPanel();
+                    this.launchGame(playerTeamId, cpuTeamId);
+                });
+            } else {
+                this.view.hideMenuPanel();
+                this.launchGame();
+            }
         });
 
         this.view.onButtonMenuContinuar(() => this.view.showEndGamePanel(false));
 
         this.view.onButtonMenu(() => this.showMenu());
 
-        // Callback para deletar dados e resetar estatísticas de forma limpa
         this.view.onButtonResetStats(() => {
             try {
                 localStorage.removeItem("momentum_soccer_record");
@@ -114,9 +133,11 @@ export class Controller {
         this.view.changeLanguage();
     }
 
-    private async launchGame(): Promise<void> {
+    private async launchGame(playerTeamId: string = "brazil", cpuTeamId: string = "germany"): Promise<void> {
         if (this.game) return;
-        this.game = new MomentumSoccerGame(this.scene);
+        
+        // Passa as seleções escolhidas pelo usuário para a inicialização da partida
+        this.game = new MomentumSoccerGame(this.scene, playerTeamId, cpuTeamId);
         await this.game.start();
         this.game.setLanguage(this.view.getCurrentLanguage());
         this.game.setOnGameOver(() => this.model.pauseMusic());

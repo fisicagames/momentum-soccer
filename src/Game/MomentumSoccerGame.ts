@@ -18,7 +18,8 @@ import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 import { CreateSoundAsync, AbstractSound, StaticSound } from "@babylonjs/core/AudioV2";
 
 import { Arena } from "./Arena";
-import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team } from "./PieceFactory";
+import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team, TeamConfig, TEAMS } from "./PieceFactory";
+
 import { SlingshotController, AimState } from "./SlingshotController";
 import { GameHUD } from "./GameHUD";
 import { CPUAgent } from "./CPUAgent";
@@ -126,8 +127,16 @@ export class MomentumSoccerGame {
     public getPlayerScore(): number { return this.playerScore; }
     public getCpuScore(): number { return this.cpuScore; }
 
-    constructor(scene: Scene) {
+    // Armazena as configurações aplicadas nesta partida
+    private playerTeamConfig!: TeamConfig;
+    private cpuTeamConfig!: TeamConfig;
+
+
+    constructor(scene: Scene, playerTeamId: string = "brazil", cpuTeamId: string = "germany") {
         this.scene = scene;
+        // Carrega as configurações baseado nos ids selecionados ou adota os padrões originais
+        this.playerTeamConfig = TEAMS[playerTeamId] || TEAMS["brazil"];
+        this.cpuTeamConfig = TEAMS[cpuTeamId] || TEAMS["germany"];
     }
 
     public async start(): Promise<void> {
@@ -165,6 +174,9 @@ export class MomentumSoccerGame {
         // Instancia o novo módulo HUD delegando as responsabilidades de GUI
         this.hud = new GameHUD(this.scene, () => this.restartMatch());
         this.hud.setLanguage(this.currentLang);
+
+        this.hud.setTeams(this.playerTeamConfig, this.cpuTeamConfig);
+        
         this.hud.updateScore(this.playerScore, this.cpuScore, this.possession);
         this.hud.updateTimer(this.timeLeft, this.half);
         this.hud.updateTurnText(this.teamTouchesLeft, MomentumSoccerGame.TEAM_TOUCHES, this.gameState);
@@ -256,8 +268,9 @@ export class MomentumSoccerGame {
 
         for (const f of formation) {
             const y = POSITIONS[f.position].height / 2 + 0.001;
-            this.playerPieces.push(createPiece(this.scene, f.position, "player", new Vector3(f.x, y, -f.z)));
-            this.cpuPieces.push(createPiece(this.scene, f.position, "cpu", new Vector3(-f.x, y, f.z)));
+            // Injeta as configurações dinâmicas de cada time correspondente na factory
+            this.playerPieces.push(createPiece(this.scene, f.position, "player", new Vector3(f.x, y, -f.z), this.playerTeamConfig));
+            this.cpuPieces.push(createPiece(this.scene, f.position, "cpu", new Vector3(-f.x, y, f.z), this.cpuTeamConfig));
         }
 
         this.ball = createBall(this.scene, new Vector3(0, 0.19, 0));
@@ -1202,8 +1215,8 @@ export class MomentumSoccerGame {
             if (diff > prevDiff || (diff === prevDiff && playerG > prevPlayerGoals)) {
                 rec.bestMatchDiff = diff;
                 rec.bestMatchPlayerGoals = playerG;
-                // Exibe de forma emblemática as seleções (futuramente dinâmico ao selecionar times)
-                rec.bestMatchScore = `🇧🇷  ${playerG} × ${cpuG}  🇩🇪`;
+                // Exibe as bandeiras e placares correspondentes de forma persistente
+                rec.bestMatchScore = `${this.playerTeamConfig.flag}  ${playerG} × ${cpuG}  ${this.cpuTeamConfig.flag}`;
             }
 
             localStorage.setItem("momentum_soccer_record", JSON.stringify(rec));

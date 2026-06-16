@@ -6,7 +6,7 @@ import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel";
-import { Team } from "./PieceFactory";
+import { Team, TeamConfig } from "./PieceFactory";
 
 export class GameHUD {
     private scene: Scene;
@@ -55,6 +55,10 @@ export class GameHUD {
     // Estado local de idioma
     private currentLang = 0;
 
+    // Novas referências de estado dos times
+    private playerTeam!: TeamConfig;
+    private cpuTeam!: TeamConfig;
+
     constructor(scene: Scene, onRestart: () => void) {
         this.scene = scene;
         this.ui = AdvancedDynamicTexture.CreateFullscreenUI("UI");
@@ -72,6 +76,13 @@ export class GameHUD {
             const block = this.playAgainBtn.textBlock;
             if (block) block.text = this.t("↺ Jogar novamente", "↺ Play again");
         }
+        this.ui.markAsDirty();
+    }
+
+    /** Permite configurar dinamicamente os dados visuais dos confrontos */
+    public setTeams(player: TeamConfig, cpu: TeamConfig): void {
+        this.playerTeam = player;
+        this.cpuTeam = cpu;
         this.ui.markAsDirty();
     }
 
@@ -392,9 +403,16 @@ export class GameHUD {
     }
 
     public updateScore(playerScore: number, cpuScore: number, possession: Team): void {
+        if (!this.playerTeam || !this.cpuTeam) return;
+
         const isPT = this.currentLang === 0;
-        this.playerScoreTxt.text = isPT ? `VOCÊ  🇧🇷  ${playerScore}` : `YOU  🇧🇷  ${playerScore}`;
-        this.cpuScoreTxt.text = `${cpuScore}  🇩🇪  CPU`;
+
+        const playerLabel = isPT ? "VOCÊ" : "YOU";
+        const cpuLabel = "CPU";
+
+        // Formata placar superior de forma totalmente reativa
+        this.playerScoreTxt.text = `${playerLabel}  ${this.playerTeam.flag}  ${playerScore}`;
+        this.cpuScoreTxt.text = `${cpuScore}  ${this.cpuTeam.flag}  ${cpuLabel}`;
 
         if (possession === "player") {
             this.playerScoreTxt.color = "#39FF14"; 

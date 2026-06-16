@@ -11,6 +11,89 @@ import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugi
 
 export type Team = "player" | "cpu";
 
+/** Configuração dinâmica para cada seleção */
+export interface TeamConfig {
+    id: string;
+    namePt: string;
+    nameEn: string;
+    flag: string;
+    colors: {
+        base: Color3;
+        secondary: Color3;
+        knob: Color3;
+    };
+}
+
+/** Dicionário global de seleções disponíveis */
+export const TEAMS: Record<string, TeamConfig> = {
+    brazil: {
+        id: "brazil",
+        namePt: "Brasil",
+        nameEn: "Brazil",
+        flag: "🇧🇷",
+        colors: {
+            base: new Color3(0.95, 0.78, 0.05),       // Amarelo Canarinho icônico (Corpo)
+            secondary: new Color3(0.05, 0.45, 0.15),  // Verde Bandeira clássico (Domo Interno)
+            knob: new Color3(0.08, 0.25, 0.70)         // Azul Anil
+        }
+    },
+    germany: {
+        id: "germany",
+        namePt: "Alemanha",
+        nameEn: "Germany",
+        flag: "🇩🇪",
+        colors: {
+            base: new Color3(0.12, 0.12, 0.12),       // Preto Fosco tradicional (Corpo)
+            secondary: new Color3(0.80, 0.12, 0.12),  // Vermelho vibrante (Domo Interno)
+            knob: new Color3(0.95, 0.78, 0.05)         // Amarelo Ouro
+        }
+    },
+    argentina: {
+        id: "argentina",
+        namePt: "Argentina",
+        nameEn: "Argentina",
+        flag: "🇦🇷",
+        colors: {
+            base: new Color3(0.35, 0.65, 0.88),       // Azul Celeste tradicional (Corpo)
+            secondary: new Color3(0.96, 0.96, 0.96),  // Branco Puro (Domo Interno)
+            knob: new Color3(0.95, 0.78, 0.05)         // Amarelo Sol
+        }
+    },
+    france: {
+        id: "france",
+        namePt: "França",
+        nameEn: "France",
+        flag: "🇫🇷",
+        colors: {
+            base: new Color3(0.05, 0.15, 0.45),       // Azul Marinho (Corpo)
+            secondary: new Color3(0.85, 0.10, 0.10),  // Vermelho (Domo Interno)
+            knob: new Color3(0.96, 0.96, 0.96)         // Branco
+        }
+    },
+    italy: {
+        id: "italy",
+        namePt: "Itália",
+        nameEn: "Italy",
+        flag: "🇮🇹",
+        colors: {
+            base: new Color3(0.05, 0.32, 0.72),       // Azul "Azzurro" clássico (Corpo)
+            secondary: new Color3(0.10, 0.55, 0.25),  // Verde (Domo Interno)
+            knob: new Color3(0.96, 0.96, 0.96)         // Branco
+        }
+    },
+    spain: {
+        id: "spain",
+        namePt: "Espanha",
+        nameEn: "Spain",
+        flag: "🇪🇸",
+        colors: {
+            base: new Color3(0.72, 0.10, 0.10),       // Vermelho Fúria (Corpo)
+            secondary: new Color3(0.95, 0.78, 0.05),  // Amarelo (Domo Interno)
+            knob: new Color3(0.08, 0.25, 0.55)         // Azul Escuro
+        }
+    }
+};
+
 /** Posições táticas oficiais da formação 3-4-3 (+ goleiro). */
 export type PositionId =
     | "goalkeeper"
@@ -25,35 +108,23 @@ export interface PositionSpec {
     mass: number;     // kg
     radius: number;   // m
     height: number;   // m
-    specular: number; // brilho (defensores são metálicos)
+    specular: number; // brilho
 }
 
-/**
- * Posições do futebol real com massas proporcionais à função: defesa pesada
- * (8 kg), meio-campo de apoio (3 kg), ataque veloz (1 kg) e goleiro de 10 kg.
- */
 export const POSITIONS: Record<PositionId, PositionSpec> = {
-    // Goleiro
     goalkeeper:       { id: "goalkeeper",       namePt: "Goleiro",          nameEn: "Goalkeeper",           mass: 10.0, radius: 0.42, height: 0.26, specular: 0.95 },
-
-    // Linha de defesa (zagueiros de 8 kg)
     left_back:        { id: "left_back",        namePt: "Zagueiro Esquerdo", nameEn: "Left Center Back",   mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
     center_back:      { id: "center_back",      namePt: "Zagueiro Central",  nameEn: "Center Back",        mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
     right_back:       { id: "right_back",       namePt: "Zagueiro Direito",  nameEn: "Right Center Back",  mass: 8.0, radius: 0.40, height: 0.29, specular: 0.95 },
-
-    // Meio-campo (apoiadores de 3 kg)
     left_midfielder:  { id: "left_midfielder",  namePt: "Ala Esquerdo",      nameEn: "Left Midfielder",      mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
     volante:          { id: "volante",          namePt: "Volante",           nameEn: "Defensive Midfielder", mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
     meia_armador:     { id: "meia_armador",     namePt: "Meia Armador",      nameEn: "Attacking Midfielder", mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
     right_midfielder: { id: "right_midfielder", namePt: "Ala Direito",       nameEn: "Right Midfielder",     mass: 3.0, radius: 0.31, height: 0.19, specular: 0.40 },
-
-    // Ataque (velocistas de 1 kg)
     left_winger:      { id: "left_winger",      namePt: "Ponta Esquerda",    nameEn: "Left Winger",   mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
     center_forward:   { id: "center_forward",   namePt: "Centroavante",      nameEn: "Center Forward", mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
     right_winger:     { id: "right_winger",     namePt: "Ponta Direita",     nameEn: "Right Winger",  mass: 1.0, radius: 0.25, height: 0.13, specular: 0.25 },
 };
 
-/** Cor exclusiva do goleiro (Amarelo Ouro), igual nos dois times. */
 const GK_COLOR = new Color3(1.0, 0.78, 0.05);
 
 export interface Piece {
@@ -61,7 +132,6 @@ export interface Piece {
     aggregate: PhysicsAggregate;
     spec: PositionSpec;
     team: Team;
-    /** Posição inicial (formação), usada em resets e no filtro de segurança. */
     home: Vector3;
 }
 
@@ -73,14 +143,7 @@ export interface Ball {
     home: Vector3;
 }
 
-const TEAM_COLORS: Record<Team, { base: Color3; secondary: Color3; knob: Color3 }> = {
-    player: { base: new Color3(0.12, 0.35, 0.85), secondary: new Color3(0.95, 0.88, 0.65), knob: new Color3(0.30, 0.55, 1.0) },
-    cpu:    { base: new Color3(0.80, 0.15, 0.12), secondary: new Color3(0.92, 0.92, 0.90), knob: new Color3(1.0, 0.38, 0.30) },
-};
-
-/** Plano com a massa estampada no selo do botão (reforço visual do conceito). */
 function createMassLabel(scene: Scene, spec: PositionSpec, team: Team): Mesh {
-    // Material compartilhado entre as peças do mesmo arquétipo/time (são 22 botões)
     const cached = scene.getMaterialByName(`massMat_${team}_${spec.id}`) as StandardMaterial | null;
     if (cached) {
         const plane = MeshBuilder.CreatePlane(`massLabel_${team}_${spec.id}`, { size: spec.radius * 0.88 }, scene);
@@ -88,8 +151,6 @@ function createMassLabel(scene: Scene, spec: PositionSpec, team: Team): Mesh {
         plane.material = cached;
         return plane;
     }
-    // Alta resolução + contorno espesso: número legível à distância sobre
-    // qualquer cor de base (são só 8 texturas — 4 arquétipos × 2 times)
     const size = 512;
     const tex = new DynamicTexture(`massTex_${team}_${spec.id}`, { width: size, height: size }, scene, true);
     tex.hasAlpha = true;
@@ -120,31 +181,25 @@ function createMassLabel(scene: Scene, spec: PositionSpec, team: Team): Mesh {
     return plane;
 }
 
-/**
- * Perfil de botão profissional de acrílico (lenticular/saucer), gerado por
- * superfície de revolução: base plana, bainha externa inclinada, domo convexo
- * e cavidade central rasa (área do selo). Coordenadas locais centradas em Y.
- */
 function buttonLatheShape(radius: number, height: number): Vector3[] {
     const r = radius;
-    const y = (t: number) => t * height - height / 2; // centra o perfil em Y
+    const y = (t: number) => t * height - height / 2;
     return [
         new Vector3(0.012, y(0), 0),
-        new Vector3(r * 0.60, y(0), 0),       // base plana
-        new Vector3(r * 0.95, y(0.30), 0),    // bainha inclinada
-        new Vector3(r * 1.00, y(0.55), 0),    // borda externa
-        new Vector3(r * 0.90, y(0.85), 0),    // ombro superior
-        new Vector3(r * 0.58, y(1.00), 0),    // topo do domo
-        new Vector3(r * 0.40, y(0.90), 0),    // desce para a cavidade
-        new Vector3(r * 0.16, y(0.84), 0),    // fundo da cavidade (selo)
+        new Vector3(r * 0.60, y(0), 0),
+        new Vector3(r * 0.95, y(0.30), 0),
+        new Vector3(r * 1.00, y(0.55), 0),
+        new Vector3(r * 0.90, y(0.85), 0),
+        new Vector3(r * 0.58, y(1.00), 0),
+        new Vector3(r * 0.40, y(0.90), 0),
+        new Vector3(r * 0.16, y(0.84), 0),
         new Vector3(0.012, y(0.84), 0),
     ];
 }
 
-export function createPiece(scene: Scene, position: PositionId, team: Team, home: Vector3): Piece {
+export function createPiece(scene: Scene, position: PositionId, team: Team, home: Vector3, teamConfig: TeamConfig): Piece {
     const spec = POSITIONS[position];
-    // Goleiro usa a cor exclusiva; peças de linha usam a cor primária do time
-    const baseColor = position === "goalkeeper" ? GK_COLOR : TEAM_COLORS[team].base;
+    const baseColor = position === "goalkeeper" ? GK_COLOR : teamConfig.colors.base;
     const name = `piece_${team}_${position}`;
 
     // Corpo do botão: perfil de acrílico em superfície de revolução
@@ -160,15 +215,15 @@ export function createPiece(scene: Scene, position: PositionId, team: Team, home
     baseMat.diffuseColor = baseColor;
     baseMat.specularColor = new Color3(spec.specular, spec.specular, spec.specular);
     if (position === "goalkeeper") {
-        baseMat.emissiveColor = new Color3(0.25, 0.18, 0.0); // leve brilho próprio
+        baseMat.emissiveColor = new Color3(0.25, 0.18, 0.0);
     }
     base.material = baseMat;
 
-    // Domo bicolor: disco central na cor secundária do time (anel externo = cor primária)
+    // Domo bicolor
     let dome: Mesh | null = null;
     if (position !== "goalkeeper") {
         const domeMat = new StandardMaterial(name + "_dome_mat", scene);
-        domeMat.diffuseColor = TEAM_COLORS[team].secondary;
+        domeMat.diffuseColor = teamConfig.colors.secondary;
         domeMat.specularColor = new Color3(spec.specular * 0.8, spec.specular * 0.8, spec.specular * 0.8);
         domeMat.backFaceCulling = false;
         dome = MeshBuilder.CreateDisc(name + "_dome", { radius: spec.radius * 0.52, tessellation: 28 }, scene);
@@ -181,9 +236,27 @@ export function createPiece(scene: Scene, position: PositionId, team: Team, home
     // Massa estampada na cavidade central (selo)
     const label = createMassLabel(scene, spec, team);
     label.parent = base;
-    label.position.y = spec.height * 0.37; // logo acima do fundo da cavidade
+    label.position.y = spec.height * 0.37;
 
-    // Física: cilindro explícito (ignora os filhos decorativos)
+    // ── Botoque central (Knob) ──
+    let knobMesh: Mesh | null = null; // Declarado no topo para segurança de escopo
+    if (position !== "goalkeeper") {
+        knobMesh = MeshBuilder.CreateCylinder(name + "_knob", {
+            diameter: spec.radius * 0.40,
+            height: spec.height * 0.16,
+            tessellation: 16
+        }, scene);
+        knobMesh.parent = base;
+        knobMesh.position.y = spec.height * 0.45;
+        
+        const knobMat = new StandardMaterial(name + "_knob_mat", scene);
+        knobMat.diffuseColor = teamConfig.colors.knob;
+        knobMat.specularColor = new Color3(spec.specular * 0.8, spec.specular * 0.8, spec.specular * 0.8);
+        knobMesh.material = knobMat;
+        knobMesh.isPickable = false;
+    }
+
+    // Física
     const aggregate = new PhysicsAggregate(base, PhysicsShapeType.CYLINDER, {
         mass: spec.mass,
         radius: spec.radius,
@@ -193,37 +266,33 @@ export function createPiece(scene: Scene, position: PositionId, team: Team, home
         restitution: 0.45,
     }, scene);
 
-    // Trava de rotação nos eixos X e Z: inércia nula nesses eixos impede capotamento;
-    // o botão só pode girar em torno do próprio eixo vertical Y (spin).
-    const inertiaY = 0.5 * spec.mass * spec.radius * spec.radius; // cilindro maciço
+    const inertiaY = 0.5 * spec.mass * spec.radius * spec.radius;
     aggregate.body.setMassProperties({ mass: spec.mass, inertia: new Vector3(0, inertiaY, 0) });
 
-    // "Feltro liso": pouco amortecimento linear — as peças deslizam e ricocheteiam
     aggregate.body.setLinearDamping(0.04);
     aggregate.body.setAngularDamping(0.9);
-
-    // Permite teleporte por manipulação direta do mesh (resets e filtro de segurança)
     aggregate.body.disablePreStep = false;
 
+    // Instanciação da peça ocorre de forma síncrona aqui
     const piece: Piece = { mesh: base, aggregate, spec, team, home: home.clone() };
 
-    // Metadata para picking do slingshot (inclui o domo bicolor e o selo)
+    // Atribuição de metadata unificada e totalmente segura contra escopo temporal
     base.metadata = { piece };
     if (dome) dome.metadata = { piece };
     label.metadata = { piece };
+    if (knobMesh) knobMesh.metadata = { piece }; // Atribuído de forma segura após o objeto "piece" existir
 
     return piece;
 }
 
 export function createBall(scene: Scene, home: Vector3): Ball {
-    const radius = 0.18; // proporção realista frente aos botões (era 0.30)
+    const radius = 0.18;
     const mass = 1.0;
 
     const mesh = MeshBuilder.CreateSphere("ball", { diameter: radius * 2, segments: 24 }, scene);
     mesh.position.copyFrom(home);
     mesh.rotationQuaternion = Quaternion.Identity();
 
-    // Textura procedural de bola de futebol (manchas pretas sobre branco)
     const size = 256;
     const tex = new DynamicTexture("ballTex", { width: size, height: size }, scene, true);
     const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
@@ -249,7 +318,7 @@ export function createBall(scene: Scene, home: Vector3): Ball {
         mass,
         radius,
         friction: 0.3,
-        restitution: 0.8, // alta elasticidade conforme o design
+        restitution: 0.8,
     }, scene);
     aggregate.body.setLinearDamping(0.05);
     aggregate.body.setAngularDamping(0.85);
