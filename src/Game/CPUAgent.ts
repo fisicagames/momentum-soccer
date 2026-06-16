@@ -22,8 +22,20 @@ export class CPUAgent {
         const ballPos = ball.mesh.position;
         const playerGoal = new Vector3(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
 
-        // Filtra os candidatos ativos (ignora goleiro exaurido ou peças expulsas da lista ativa)
-        const candidates = game.getCpuPieces().filter(p => !game.isPieceExhausted(p));
+        // ── REGRA TÁTICA DA PEQUENA ÁREA ──
+        // O goleiro só entra como candidato ativo se a bola estiver dentro dos limites da sua pequena área
+        // (resolve perfeitamente o tiro de meta e evita que ele saia correndo pelo campo se chocando com os postes)
+        const isBallInSmallArea = ballPos.z >= Arena.GOAL_LINE_Z - Arena.AREA_D - 0.1 
+            && Math.abs(ballPos.x) <= Arena.AREA_W / 2 + 0.1;
+
+        let candidates = game.getCpuPieces().filter(p => {
+            if (game.isPieceExhausted(p)) return false;
+            if (p.spec.id === "goalkeeper") {
+                return isBallInSmallArea;
+            }
+            return true;
+        });
+        
         if (candidates.length === 0) return;
 
         // O caminho da bola até o gol do jogador está livre?
@@ -34,7 +46,6 @@ export class CPUAgent {
         const randomShotRisk = distToGoal < 7.5 && Math.random() < 0.5;
         let shootAtGoal = goalPathClear || game.getTeamTouchesLeft() <= 4 || randomShotRisk;
 
-        // Alvo final do disparo: o gol ou o companheiro livre mais avançado
         // Alvo final do disparo: o gol ou o companheiro livre mais avançado
         let target = playerGoal.clone();
         if (!shootAtGoal) {
@@ -84,9 +95,6 @@ export class CPUAgent {
             const contact = ballPos.subtract(desired.scale(ball.radius + piece.spec.radius));
 
             // ── SOLUÇÃO 1: TRAVA DE PAREDE LATERAL (Capping de X) ────────────
-            // Se a bola estiver na lateral do campo, impede que o ponto de contato
-            // calculado caia para fora do muro invisível (X = ±4.0), o que faria
-            // o botão da CPU ficar batendo contra a parede sem tocar na bola.
             const maxContactX = Arena.FIELD_W / 2 - piece.spec.radius - 0.05;
             contact.x = Math.max(-maxContactX, Math.min(maxContactX, contact.x));
 
@@ -104,9 +112,6 @@ export class CPUAgent {
             let score = CPUAgent.W_PROXIMITY * proximity + CPUAgent.W_ALIGNMENT * alignment;
 
             // ── SOLUÇÃO 2: EVITAR VAI-E-VEM EM BOLAS COLADAS ─────────────────
-            // Se o botão estiver colado na bola, mas em um ângulo ruim para o gol
-            // (ex: na frente ou de lado), penaliza o score drasticamente. Isso força
-            // a CPU a escolher outro companheiro livre que venha de trás com bom ângulo.
             if (dist < 0.6 && align < 0.4) {
                 score *= 0.15;
             }
@@ -129,18 +134,18 @@ export class CPUAgent {
             const travel = Vector3.Distance(ballPos, target);
             const vBall = Math.min(2.2 + travel * 0.65, 4.5);
             const m = best.piece.spec.mass;
-            const vPiece = vBall * (m + ball.mass) / (2 * m) + best.dist * 0.25;
             
-            // Força um impulso mínimo de 2.5 para evitar "micro-toques" e empurrar a bola com firmeza
+            // Ajustado peso da distância de 0.25 para 0.45 para garantir aproximações firmes (sem passos de formiguinha)
+            const vPiece = vBall * (m + ball.mass) / (2 * m) + best.dist * 0.45;
+            
+            // Força um impulso mínimo ligeiramente maior (2.8) para vencer o atrito com decisão
             impulse = Math.min(m * Math.max(vPiece, 1.4), MomentumSoccerGame.MAX_IMPULSE);
-            impulse = Math.max(impulse, 2.5); 
+            impulse = Math.max(impulse, 2.8); 
         }
         
         // ── REDUÇÃO DE INTENSIDADE PARA 1/3 NO ESCANTEIO ──
-        // Detecta se a bola está posicionada em um dos cantos de fundo do campo (zona de escanteio)
         const isCornerKick = Math.abs(ballPos.z) > Arena.GOAL_LINE_Z - 1.0 && Math.abs(ballPos.x) > Arena.FIELD_W / 2 - 1.0;
         if (isCornerKick) {
-            // Reduz para 1/3 da intensidade (máximo de 6.0), com piso mínimo de 2.0 para cruzamentos bem distribuídos
             impulse = Math.max(impulse * (1 / 3), 2.0);
         }
         
@@ -164,10 +169,24 @@ export class CPUAgent {
         if (segLen2 < 1e-6) return false;
 
         const blockers: { x: number; z: number; radius: number }[] = [];
+        
+        // 1. Outras peças ativas em campo
         for (const p of [...game.getPlayerPieces(), ...game.getCpuPieces()]) {
             if (exclude.includes(p.mesh)) continue;
             blockers.push({ x: p.mesh.position.x, z: p.mesh.position.z, radius: p.spec.radius });
         }
+
+        // 2. ── DETECÇÃO FÍSICA DAS TRAVES DO GOL ──
+        // Adiciona as 4 traves de gol como bloqueadores físicos estáticos permanentes do campo.
+        // Evita que zagueiros ou goleiro tentem traçar caminhos diretos batendo cego contra a trave.
+        const postRadius = 0.07; // 0.14m de diâmetro dividido por 2
+        const goalZ = Arena.GOAL_LINE_Z;
+        const goalHalfW = Arena.GOAL_W / 2;
+
+        blockers.push({ x: -goalHalfW, z: -goalZ, radius: postRadius });
+        blockers.push({ x: goalHalfW, z: -goalZ, radius: postRadius });
+        blockers.push({ x: -goalHalfW, z: goalZ, radius: postRadius });
+        blockers.push({ x: goalHalfW, z: goalZ, radius: postRadius });
 
         for (const blk of blockers) {
             const t = Math.max(0, Math.min(1, ((blk.x - from.x) * segX + (blk.z - from.z) * segZ) / segLen2));
