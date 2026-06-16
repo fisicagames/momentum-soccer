@@ -14,7 +14,7 @@ import { PhysicsEventType, IPhysicsCollisionEvent, IBasePhysicsCollisionEvent, P
 import HavokPhysics from "@babylonjs/havok";
 import { Observer } from "@babylonjs/core/Misc/observable";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
-import { CreateSoundAsync, AbstractSound } from "@babylonjs/core/AudioV2";
+import { CreateSoundAsync, AbstractSound, StaticSound } from "@babylonjs/core/AudioV2";
 
 import { Arena } from "./Arena";
 import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team } from "./PieceFactory";
@@ -105,6 +105,9 @@ export class MomentumSoccerGame {
     // O Módulo HUD unificado
     private hud!: GameHUD;
 
+    // Instância do apito V2
+    private whistleSound: StaticSound | null = null;
+
     // Callbacks para o Controller
     private onGameOverCallback: (() => void) | null = null;
     private onGameResumeCallback: (() => void) | null = null;
@@ -139,6 +142,13 @@ export class MomentumSoccerGame {
         this.buildParticles();
         this.setupCollisionFeedback();
         this.setupSlingshot();
+
+        // Carrega o arquivo compactado único de apitos de forma assíncrona
+        CreateSoundAsync("whistle", "./assets/sounds/freesound_community-metal-whistle-6121-compress.mp3", { loop: false })
+            .then(s => { this.whistleSound = s; });
+
+        CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false })
+            .then(s => { this.impactSound = s; });
         
         // Instancia o novo módulo HUD delegando as responsabilidades de GUI
         this.hud = new GameHUD(this.scene, () => this.restartMatch());
@@ -152,9 +162,6 @@ export class MomentumSoccerGame {
 
         // A partida abre com saída de bola automática do jogador
         this.beginKickoff("player");
-
-        CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false })
-            .then(s => { this.impactSound = s; });
 
         if (import.meta.env.DEV) {
             (window as unknown as Record<string, unknown>).__msGame = this;
@@ -373,6 +380,9 @@ export class MomentumSoccerGame {
         this.possession = team;
         this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
         this.refillEnergy();
+
+        // Apita para autorizar a saída de bola
+        this.playWhistle("kickoff");
         
         this.executeAutomaticKickoff(team);
     }
@@ -479,6 +489,9 @@ export class MomentumSoccerGame {
             this.yellowCards.set(offendingPiece, cards);
 
             const pieceName = this.currentLang === 0 ? offendingPiece.spec.namePt : offendingPiece.spec.nameEn;
+
+            // Apito agudo de advertência imediata de falta
+            this.playWhistle("yellow_card");
 
             if (cards < 3) {
                 // Cartão Amarelo: Exibido com borda amarela de alta legibilidade
@@ -965,6 +978,9 @@ export class MomentumSoccerGame {
                 // na pequena área, neutralizando o teleporte indesejado do safetyFilter)
                 this.goalKickReposition(defendingTeam);
 
+                // Apita para autorizar a reposição de bola em jogo
+                this.playWhistle("play_restart");
+
                 this.enterTurnState();
             }, 1500); // 1.5 segundos de vôo livre assistido pela câmera
         } else {
@@ -1035,6 +1051,10 @@ export class MomentumSoccerGame {
                 this.possession = attackingTeam;
                 this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
                 this.refillEnergy();
+
+                // Apita para autorizar a cobrança de escanteio
+                this.playWhistle("play_restart");
+
                 this.enterTurnState();
             }, 1500);
         }
@@ -1050,6 +1070,9 @@ export class MomentumSoccerGame {
         this.confettiSystem.emitter = this.ball.mesh.position.clone();
         this.confettiSystem.manualEmitCount = scorer === "player" ? 300 : 80;
         if (this.impactSound) { this.impactSound.volume = 1; this.impactSound.play(); }
+
+        // Apito longo de comemoração de gol
+        this.playWhistle("goal");
 
         // Textos profissionais sem emojis lúdicos
         const goalText = scorer === "player" ? this.t("GOL!", "GOAL!") : this.t("GOL DA CPU", "CPU GOAL");
@@ -1106,6 +1129,9 @@ export class MomentumSoccerGame {
             this.hud.showGoal(halfText, "#9FD4FF", true);
             this.enterState("HALF_TIME");
 
+            // Apito duplo de fim de tempo
+            this.playWhistle("halftime");
+
             setTimeout(() => {
                 this.hud.hideGoal();
                 if (this.gameState !== "HALF_TIME") return;
@@ -1127,6 +1153,9 @@ export class MomentumSoccerGame {
         this.saveRecord(outcome, this.playerScore, this.cpuScore);
         
         this.enterState("GAMEOVER");
+
+        // Apito triplo oficial de fim de jogo
+        this.playWhistle("fulltime");
 
         const gameOverTitle = outcome === "win"
             ? this.t("🏆 Você venceu!", "🏆 You won!")
@@ -1247,6 +1276,7 @@ export class MomentumSoccerGame {
         this.sparkSystem.dispose();
         this.confettiSystem.dispose();
         this.impactSound?.dispose();
+        this.whistleSound?.dispose();
 
         this.hud.dispose();
 
@@ -1257,5 +1287,50 @@ export class MomentumSoccerGame {
         this.camera.dispose();
 
         this.scene.disablePhysicsEngine();
+    }
+
+    /**
+     * Executa um fragmento específico do áudio de apitos com base no evento de jogo.
+     */
+    private playWhistle(type: "kickoff" | "halftime" | "fulltime" | "goal" | "yellow_card" | "play_restart"): void {
+        if (!this.whistleSound) return;
+
+        let startOffset = 0;
+        let duration = 0;
+
+        switch (type) {
+            case "kickoff":
+                startOffset = 6.60;
+                duration = 0.75;
+                break;
+            case "halftime":
+                startOffset = 2.75;
+                duration = 0.65;
+                break;
+            case "fulltime":
+                // Clássico sinal de fim de partida da arbitragem: dois sopros curtos rápidos e um longo final
+                this.whistleSound.play({ startOffset: 8.40, duration: 0.15 });
+                setTimeout(() => {
+                    this.whistleSound?.play({ startOffset: 8.40, duration: 0.15 });
+                }, 300);
+                setTimeout(() => {
+                    this.whistleSound?.play({ startOffset: 18.20, duration: 0.65 });
+                }, 600);
+                return; // Enfileiramento concluído
+            case "goal":
+                startOffset = 9.80;
+                duration = 0.60;
+                break;
+            case "yellow_card":
+                startOffset = 8.40;
+                duration = 0.15;
+                break;
+            case "play_restart":
+                startOffset = 4.20;
+                duration = 0.25;
+                break;
+        }
+
+        this.whistleSound.play({ startOffset, duration });
     }
 }
