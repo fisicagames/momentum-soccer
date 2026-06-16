@@ -143,12 +143,19 @@ export class MomentumSoccerGame {
         this.setupCollisionFeedback();
         this.setupSlingshot();
 
-        // Carrega o arquivo compactado único de apitos de forma assíncrona
-        CreateSoundAsync("whistle", "./assets/sounds/freesound_community-metal-whistle-6121-compress.mp3", { loop: false })
-            .then(s => { this.whistleSound = s; });
+        // ── AGUARDA O CARREGAMENTO DOS AUDIO BUFFERS (Failsafe de Corrida de Inicialização) ──
+        // O uso do await garante que os arquivos estejam na memória antes de autorizar o kickoff automático.
+        try {
+            this.whistleSound = await CreateSoundAsync("whistle", "./assets/sounds/freesound_community-metal-whistle-6121-compress.mp3", { loop: false });
+        } catch (e) {
+            console.error("MomentumSoccerGame: Falha ao inicializar áudio de apito.", e);
+        }
 
-        CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false })
-            .then(s => { this.impactSound = s; });
+        try {
+            this.impactSound = await CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false });
+        } catch (e) {
+            console.error("MomentumSoccerGame: Falha ao inicializar áudio de impacto.", e);
+        }
         
         // Instancia o novo módulo HUD delegando as responsabilidades de GUI
         this.hud = new GameHUD(this.scene, () => this.restartMatch());
@@ -160,12 +167,8 @@ export class MomentumSoccerGame {
 
         this.setupGameLoop();
 
-        // A partida abre com saída de bola automática do jogador
+        // A partida abre com saída de bola automática do jogador (agora com o áudio carregado e pronto!)
         this.beginKickoff("player");
-
-        if (import.meta.env.DEV) {
-            (window as unknown as Record<string, unknown>).__msGame = this;
-        }
     }
 
     // ── CÂMERA ────────────────────────────────────────────────────────────────
