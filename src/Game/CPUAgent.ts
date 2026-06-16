@@ -48,7 +48,7 @@ export class CPUAgent {
             minPassImpulse = 2.8;
         } else {
             // CPU VENCENDO POR 2 OU MAIS (GOLEADA): CPU "relaxa", comete erros e mira no meio
-            noiseFactor = 0.14;
+            noiseFactor = 0.12;
             smartAim = false;
             minPassImpulse = 2.4;
         }
