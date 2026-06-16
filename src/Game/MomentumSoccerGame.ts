@@ -1,3 +1,4 @@
+import { SoundModel } from "../MVC/Model/SoundModel";
 import { Scene } from "@babylonjs/core/scene";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
@@ -768,18 +769,14 @@ export class MomentumSoccerGame {
             this.hud.triggerFloatText(point, impulse, norm);
         }
 
-        if (this.impactSound && impulse > 0.8) {
+        // Verifica se o som está habilitado e executa sob try-catch protegido
+        if (this.impactSound && impulse > 0.8 && SoundModel.isMusicEnabled) {
             try {
                 this.impactSound.volume = Math.min(0.15 + norm, 1);
                 this.impactSound.play();
             } catch (e) {
                 // Impede que colisões mais fortes causem congelamento
             }
-        }
-
-        if (this.impactSound && impulse > 0.8) {
-            this.impactSound.volume = Math.min(0.15 + norm, 1);
-            this.impactSound.play();
         }
     }
 
@@ -1054,7 +1051,9 @@ export class MomentumSoccerGame {
 
         this.confettiSystem.emitter = this.ball.mesh.position.clone();
         this.confettiSystem.manualEmitCount = scorer === "player" ? 300 : 80;
-        if (this.impactSound) { 
+        
+        // Verifica se o som está habilitado antes de reproduzir o impacto do gol
+        if (this.impactSound && SoundModel.isMusicEnabled) { 
             try {
                 this.impactSound.volume = 1; 
                 this.impactSound.play(); 
@@ -1287,7 +1286,8 @@ export class MomentumSoccerGame {
      * ativos garantidos para evitar silêncio devido a cortes de compressão do MP3.
      */
     private playWhistle(type: "kickoff" | "halftime" | "fulltime" | "goal" | "yellow_card" | "play_restart"): void {
-        if (!this.whistleSound) return;
+        // Bloqueia a reprodução caso o som esteja desabilitado globalmente pelo usuário
+        if (!this.whistleSound || !SoundModel.isMusicEnabled) return;
 
         try {
             // Para reproduções anteriores para evitar conflitos de fatias concorrentes no Web Audio
@@ -1310,7 +1310,6 @@ export class MomentumSoccerGame {
                 break;
             case "fulltime":
                 // Clássico sinal de fim de partida da arbitragem: dois sopros curtos rápidos e um longo final
-                // Utiliza os offsets 4.20 (curto) e 6.60 (longo) que são 100% funcionais no MP3
                 try {
                     this.whistleSound.play({ startOffset: 4.20, duration: 0.20 });
                     setTimeout(() => {
@@ -1332,7 +1331,6 @@ export class MomentumSoccerGame {
                 duration = 0.60;
                 break;
             case "yellow_card":
-                // Utiliza o offset 4.20 (curto/agudo) garantido no arquivo de áudio
                 startOffset = 4.20;
                 duration = 0.35;
                 break;
