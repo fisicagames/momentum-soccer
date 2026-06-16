@@ -762,6 +762,15 @@ export class MomentumSoccerGame {
         }
 
         if (this.impactSound && impulse > 0.8) {
+            try {
+                this.impactSound.volume = Math.min(0.15 + norm, 1);
+                this.impactSound.play();
+            } catch (e) {
+                // Impede que colisões mais fortes causem congelamento
+            }
+        }
+
+        if (this.impactSound && impulse > 0.8) {
             this.impactSound.volume = Math.min(0.15 + norm, 1);
             this.impactSound.play();
         }
@@ -1038,7 +1047,14 @@ export class MomentumSoccerGame {
 
         this.confettiSystem.emitter = this.ball.mesh.position.clone();
         this.confettiSystem.manualEmitCount = scorer === "player" ? 300 : 80;
-        if (this.impactSound) { this.impactSound.volume = 1; this.impactSound.play(); }
+        if (this.impactSound) { 
+            try {
+                this.impactSound.volume = 1; 
+                this.impactSound.play(); 
+            } catch (e) {
+                // Impede que o som de impacto interrompa a comemoração do gol
+            }
+        }
 
         // Apito longo de comemoração de gol
         this.playWhistle("goal");
@@ -1260,9 +1276,18 @@ export class MomentumSoccerGame {
 
     /**
      * Executa um fragmento específico do áudio de apitos com base no evento de jogo.
+     * Envolvido por blocos try-catch (Failsafe) para garantir que falhas ou bloqueios
+     * de áudio dos navegadores nunca interrompam as transições e elementos visuais da HUD.
      */
     private playWhistle(type: "kickoff" | "halftime" | "fulltime" | "goal" | "yellow_card" | "play_restart"): void {
         if (!this.whistleSound) return;
+
+        try {
+            // Para reproduções anteriores para evitar conflitos de fatias concorrentes no Web Audio
+            this.whistleSound.stop();
+        } catch (e) {
+            // Silencioso caso não haja instância ativa para parar
+        }
 
         let startOffset = 0;
         let duration = 0;
@@ -1278,14 +1303,22 @@ export class MomentumSoccerGame {
                 break;
             case "fulltime":
                 // Clássico sinal de fim de partida da arbitragem: dois sopros curtos rápidos e um longo final
-                this.whistleSound.play({ startOffset: 8.40, duration: 0.15 });
-                setTimeout(() => {
-                    this.whistleSound?.play({ startOffset: 8.40, duration: 0.15 });
-                }, 300);
-                setTimeout(() => {
-                    this.whistleSound?.play({ startOffset: 18.20, duration: 0.65 });
-                }, 600);
-                return; // Enfileiramento concluído
+                try {
+                    this.whistleSound.play({ startOffset: 8.40, duration: 0.15 });
+                    setTimeout(() => {
+                        try {
+                            this.whistleSound?.stop();
+                            this.whistleSound?.play({ startOffset: 8.40, duration: 0.15 });
+                        } catch (e) { /* failsafe silencioso */ }
+                    }, 300);
+                    setTimeout(() => {
+                        try {
+                            this.whistleSound?.stop();
+                            this.whistleSound?.play({ startOffset: 18.20, duration: 0.65 });
+                        } catch (e) { /* failsafe silencioso */ }
+                    }, 600);
+                } catch (e) { /* failsafe silencioso */ }
+                return; // Enfileiramento concluído de forma segura
             case "goal":
                 startOffset = 9.80;
                 duration = 0.60;
@@ -1300,6 +1333,11 @@ export class MomentumSoccerGame {
                 break;
         }
 
-        this.whistleSound.play({ startOffset, duration });
+        try {
+            this.whistleSound.play({ startOffset, duration });
+        } catch (error) {
+            // Emite um aviso no console de desenvolvimento, mas deixa o fluxo do jogo continuar
+            console.warn(`MomentumSoccerGame: Falha ao reproduzir áudio de apito (${type}).`, error);
+        }
     }
 }

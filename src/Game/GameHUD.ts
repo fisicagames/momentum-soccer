@@ -6,12 +6,11 @@ import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { Button } from "@babylonjs/gui/2D/controls/button";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel";
-import { Team } from "./PieceFactory"; // Unificado usando o tipo Team oficial
+import { Team } from "./PieceFactory";
 
 export class GameHUD {
     private scene: Scene;
     private ui: AdvancedDynamicTexture;
-    // Constante estática para facilitar a calibração do tempo dos alertas (ex: 4500ms)
     private static readonly ALERT_DURATION = 4500;
 
     // Cabeçalho superior (Placar, Tempo, Toques)
@@ -33,17 +32,16 @@ export class GameHUD {
     private energyBarSpend!: Rectangle;
 
     // Overlays, Alertas de Cartões e Avisos
-    private goalPanel!: Rectangle;       // Banner horizontal de transmissão de TV para Gols/Intervalo
-    private goalPanelLineTop!: Rectangle; // Linha de acabamento superior do banner
-    private goalPanelLineBottom!: Rectangle; // Linha de acabamento inferior do banner
+    private goalPanel!: Rectangle;       
+    private goalPanelLineTop!: Rectangle; 
+    private goalPanelLineBottom!: Rectangle; 
     private goalTxt!: TextBlock;
-    private alertPanel!: Rectangle; // Painel sólido de alto contraste para alertas
+    private alertPanel!: Rectangle; 
     private alertTxt!: TextBlock;
     private hintTxt!: TextBlock;
     private alertTimer: any = null;
     private hintPanel!: Rectangle;
     private hintTimer: any = null;
-
 
     // Pool de textos flutuantes de impacto (Δp)
     private floatTexts: { tb: TextBlock; life: number }[] = [];
@@ -60,6 +58,11 @@ export class GameHUD {
     constructor(scene: Scene, onRestart: () => void) {
         this.scene = scene;
         this.ui = AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        
+        // ── BLINDAGEM DA GUI CONTRA SUMIÇOS INTERMITENTES ──
+        // Desativa a otimização de retângulos que causa falhas de desenho sem cliques do usuário
+        this.ui.useInvalidateRectOptimization = false; 
+
         this.buildGUI(onRestart);
     }
 
@@ -69,21 +72,20 @@ export class GameHUD {
             const block = this.playAgainBtn.textBlock;
             if (block) block.text = this.t("↺ Jogar novamente", "↺ Play again");
         }
+        this.ui.markAsDirty();
     }
 
     private buildGUI(onRestart: () => void): void {
-        // Barra superior de 92px (Z-Index baixo: 10)
         this.topBar = new Rectangle("topBar");
         this.topBar.width = "100%";
         this.topBar.height = "92px";
         this.topBar.thickness = 0;
         this.topBar.background = "rgba(0,0,0,0.5)";
         this.topBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.topBar.isHitTestVisible = false; // Permite cliques passarem para o 3D atrás dela
+        this.topBar.isHitTestVisible = false;
         this.topBar.zIndex = 10;
         this.ui.addControl(this.topBar);
 
-        // Container para o placar em StackPanel (Garanto simetria absoluta)
         const scorePanel = new StackPanel("scorePanel");
         scorePanel.isVertical = false;
         scorePanel.height = "30px";
@@ -132,11 +134,8 @@ export class GameHUD {
         this.turnTxt.isHitTestVisible = false;
         this.topBar.addControl(this.turnTxt);
 
-        // ── BOTÕES DE COMANDO (Restart & Exit Condicional) ──
-        // Verifica se o jogo está rodando no seu próprio portal
         const isFisicaGames = window.location.hostname.includes("fisicagames.com.br");
 
-        // Botão de reiniciar (Sempre visível)
         this.restartBtn = Button.CreateSimpleButton("restart", "↺");
         this.restartBtn.width = "20px";
         this.restartBtn.height = "20px";
@@ -148,19 +147,16 @@ export class GameHUD {
         this.restartBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
         this.restartBtn.left = "-8px";
         
-        // Se a saída estiver ativa, desloca o restart ligeiramente para baixo.
-        // Caso contrário, centraliza verticalmente na barra (0px) para manter a simetria em outros portais.
         if (isFisicaGames) {
             this.restartBtn.top = "15px";
         } else {
-            this.restartBtn.top = "0px"; // Centralização vertical perfeita em portais terceiros
+            this.restartBtn.top = "0px";
         }
 
         this.restartBtn.isHitTestVisible = true;
         this.restartBtn.onPointerClickObservable.add(onRestart);
         this.topBar.addControl(this.restartBtn);
 
-        // Botão de fechar (Apenas no seu domínio, posicionado com maior distanciamento acima)
         if (isFisicaGames) {
             const exitBtn = Button.CreateSimpleButton("exit", "✕");
             exitBtn.width = "20px";
@@ -172,7 +168,7 @@ export class GameHUD {
             exitBtn.thickness = 0;
             exitBtn.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
             exitBtn.left = "-8px";
-            exitBtn.top = "-24px"; // Aumentado o afastamento para separar visualmente as duas esferas
+            exitBtn.top = "-24px";
             exitBtn.isHitTestVisible = true;
             
             exitBtn.onPointerClickObservable.add(() => {
@@ -181,8 +177,6 @@ export class GameHUD {
             this.topBar.addControl(exitBtn);
         }
 
-
-        // Indicador visual dos 12 toques
         this.touchesDotsTxt = new TextBlock("touchesDots", "");
         this.touchesDotsTxt.color = "#FFD24A";
         this.touchesDotsTxt.fontSize = 13;
@@ -192,7 +186,6 @@ export class GameHUD {
         this.touchesDotsTxt.isHitTestVisible = false;
         this.topBar.addControl(this.touchesDotsTxt);
 
-        // Painel de telemetria da mira (Z-Index intermediário: 50)
         this.aimPanel = new Rectangle("aimPanel");
         this.aimPanel.width = "212px";
         this.aimPanel.height = "146px";
@@ -203,13 +196,12 @@ export class GameHUD {
         this.aimPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.aimPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
         this.aimPanel.left = "12px";
-        this.aimPanel.top = "-20px"; // Mantido o valor calíbrado de -20px do jogador
+        this.aimPanel.top = "-20px";
         this.aimPanel.isVisible = false;
-        this.aimPanel.isHitTestVisible = false; // Dados de telemetria não obstruem cliques da mira
+        this.aimPanel.isHitTestVisible = false;
         this.aimPanel.zIndex = 50;
         this.ui.addControl(this.aimPanel);
 
-        // Título da telemetria (CENTRALIZADO NO TOPO)
         this.aimPositionTxt = new TextBlock("aimPosition", "");
         this.aimPositionTxt.color = "white";
         this.aimPositionTxt.fontSize = 12;
@@ -249,7 +241,6 @@ export class GameHUD {
         this.energyBarSpend.isHitTestVisible = false;
         barBg.addControl(this.energyBarSpend);
 
-        // Bloco de Energia Potencial e Trabalho
         this.aimEnergyTxt = new TextBlock("aimEnergyTxt", "");
         this.aimEnergyTxt.color = "#7FFFD4";
         this.aimEnergyTxt.fontSize = 11;
@@ -261,7 +252,6 @@ export class GameHUD {
         this.aimEnergyTxt.isHitTestVisible = false;
         this.aimPanel.addControl(this.aimEnergyTxt);
 
-        // Especificações físicas (m, v, p, K, P)
         this.aimTxt = new TextBlock("aimTxt", "");
         this.aimTxt.color = "white";
         this.aimTxt.fontSize = 11;
@@ -272,21 +262,18 @@ export class GameHUD {
         this.aimTxt.isHitTestVisible = false;
         this.aimPanel.addControl(this.aimTxt);
 
-        // Banner horizontal de comemoração de GOL/Intervalo (Estilo TV de Esportes)
-        // Z-Index superior absoluto de 110 para desenhar por cima de tudo
         this.goalPanel = new Rectangle("goalPanel");
         this.goalPanel.width = "100%";
-        this.goalPanel.height = "70px";
+        this.goalPanel.height = "76px";
         this.goalPanel.thickness = 0;
-        this.goalPanel.background = "rgba(10,10,32,0.88)"; // Fundo escuro premium
-        this.goalPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP; // Alinhamento no topo!
-        this.goalPanel.top = "104px";
+        this.goalPanel.background = "rgba(10,10,32,0.92)"; 
+        this.goalPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP; 
+        this.goalPanel.top = "106px";
         this.goalPanel.isHitTestVisible = false;
         this.goalPanel.isVisible = false;
-        this.goalPanel.zIndex = 110;
+        this.goalPanel.zIndex = 150; 
         this.ui.addControl(this.goalPanel);
 
-        // Linha de acabamento superior do banner (dinâmica)
         this.goalPanelLineTop = new Rectangle("goalPanelLineTop");
         this.goalPanelLineTop.width = "100%";
         this.goalPanelLineTop.height = "3px";
@@ -295,7 +282,6 @@ export class GameHUD {
         this.goalPanelLineTop.isHitTestVisible = false;
         this.goalPanel.addControl(this.goalPanelLineTop);
 
-        // Linha de acabamento inferior do banner (dinâmica)
         this.goalPanelLineBottom = new Rectangle("goalPanelLineBottom");
         this.goalPanelLineBottom.width = "100%";
         this.goalPanelLineBottom.height = "3px";
@@ -313,42 +299,38 @@ export class GameHUD {
         this.goalTxt.isHitTestVisible = false;
         this.goalPanel.addControl(this.goalTxt);
 
-// Card de Alerta Avançado (Alta Legibilidade) (Z-Index alto: 100)
-        // Posicionado a 130px do topo para dar folga perfeita de 10px abaixo da topBar de 92px
         this.alertPanel = new Rectangle("alertPanel");
         this.alertPanel.width = "90%";
         this.alertPanel.height = "56px";
         this.alertPanel.cornerRadius = 8;
         this.alertPanel.thickness = 2;
         this.alertPanel.color = "#FFC34D";
-        this.alertPanel.background = "rgba(10,10,30,0.88)"; // Fundo escuro de alto contraste
+        this.alertPanel.background = "rgba(10,10,30,0.88)"; 
         this.alertPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.alertPanel.top = "130px"; // Ajustado de 102px para 130px para evitar cortes
-        this.alertPanel.isHitTestVisible = false; // Não bloqueia cliques
+        this.alertPanel.top = "130px"; 
+        this.alertPanel.isHitTestVisible = false; 
         this.alertPanel.isVisible = false;
-        this.alertPanel.zIndex = 100;
+        this.alertPanel.zIndex = 140; // Ajustado de 100 para 140 (imediatamente sob o goalPanel)
         this.ui.addControl(this.alertPanel);
 
         this.alertTxt = new TextBlock("alert", "");
         this.alertTxt.fontSize = 13;
         this.alertTxt.fontWeight = "bold";
-        this.alertTxt.color = "white"; // Fonte branca de alta leitura sobre o fundo escuro
+        this.alertTxt.color = "white"; 
         this.alertTxt.textWrapping = true;
         this.alertTxt.isHitTestVisible = false;
         this.alertPanel.addControl(this.alertTxt);
 
-        // Dica
-        // Card de Dica/Instrução Inicial Avançado (Alta Legibilidade e Estética Premium)
         this.hintPanel = new Rectangle("hintPanel");
         this.hintPanel.width = "86%";
         this.hintPanel.height = "56px";
         this.hintPanel.cornerRadius = 10;
         this.hintPanel.thickness = 1.5;
-        this.hintPanel.color = "#9FD4FF"; // Cor azulada suave combinando com o time do jogador
-        this.hintPanel.background = "rgba(10,10,30,0.85)"; // Fundo escuro de alto contraste
+        this.hintPanel.color = "#9FD4FF"; 
+        this.hintPanel.background = "rgba(10,10,30,0.85)"; 
         this.hintPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-        this.hintPanel.top = "-26px"; // Posicionado acima do botão de rodapé
-        this.hintPanel.isHitTestVisible = false; // Permite cliques de mira passarem direto
+        this.hintPanel.top = "-26px"; 
+        this.hintPanel.isHitTestVisible = false; 
         this.hintPanel.zIndex = 40;
         this.ui.addControl(this.hintPanel);
 
@@ -380,6 +362,7 @@ export class GameHUD {
         this.gameOverPanel.color = "#FFD24A";
         this.gameOverPanel.background = "rgba(8,10,28,0.92)";
         this.gameOverPanel.isVisible = false;
+        this.gameOverPanel.zIndex = 160; // Z-Index maior para desenhar por cima de tudo no final do jogo
         this.ui.addControl(this.gameOverPanel);
 
         this.gameOverTitle = new TextBlock("goTitle", "");
@@ -414,12 +397,13 @@ export class GameHUD {
         this.cpuScoreTxt.text = `${cpuScore}  🇩🇪  CPU`;
 
         if (possession === "player") {
-            this.playerScoreTxt.color = "#39FF14"; // Verde Brilhante
+            this.playerScoreTxt.color = "#39FF14"; 
             this.cpuScoreTxt.color = "white";
         } else {
             this.playerScoreTxt.color = "white";
-            this.cpuScoreTxt.color = "#39FF14"; // Verde Brilhante
+            this.cpuScoreTxt.color = "#39FF14"; 
         }
+        this.ui.markAsDirty();
     }
 
     public updateTimer(timeLeft: number, half: 1 | 2): void {
@@ -428,6 +412,7 @@ export class GameHUD {
         const ss = String(total % 60).padStart(2, "0");
         const halfLabel = half === 1 ? this.t("1º Tempo", "1st Half") : this.t("2º Tempo", "2nd Half");
         this.timerTxt.text = `${halfLabel} — ${mm}:${ss}`;
+        this.ui.markAsDirty();
     }
 
     public updateTurnText(touchesLeft: number, maxTouches: number, state: string): void {
@@ -457,6 +442,7 @@ export class GameHUD {
             default:
                 this.turnTxt.text = "";
         }
+        this.ui.markAsDirty();
     }
 
     public updateAimPanel(
@@ -491,48 +477,55 @@ export class GameHUD {
         this.energyBarSpend.width = `${(spend / energyBarMax) * barW}px`;
 
         this.aimPanel.isVisible = true;
+        this.ui.markAsDirty();
     }
 
     public hideAimPanel(): void {
         this.aimPanel.isVisible = false;
+        this.ui.markAsDirty();
     }
 
     public hideGoal(): void {
         this.goalPanel.isVisible = false;
+        this.ui.markAsDirty();
     }
 
-    public showGoal(text: string, color: string, isPlayerScorer: boolean): void {
-        this.goalTxt.text = text;
-        this.goalTxt.color = color;
-        
-        // Ajusta as linhas estéticas dourada/vermelha do banner conforme o autor do gol
-        const lineColor = isPlayerScorer ? "#FFD24A" : "#FF5555";
-        this.goalPanelLineTop.background = lineColor;
-        this.goalPanelLineBottom.background = lineColor;
+    public showGoal(text: string, color: string, isPlayerScorer: boolean = true): void {
+        try {
+            this.goalTxt.text = text;
+            this.goalTxt.color = color;
+            
+            const lineColor = isPlayerScorer ? "#FFD24A" : "#FF5555";
+            if (this.goalPanelLineTop) this.goalPanelLineTop.background = lineColor;
+            if (this.goalPanelLineBottom) this.goalPanelLineBottom.background = lineColor;
+        } catch (e) {
+            console.warn("GameHUD: Erro ao desenhar estilos cosméticos", e);
+        }
 
         this.goalPanel.isVisible = true;
+        this.ui.markAsDirty(); // Força a atualização síncrona na tela
     }
 
     public showAlert(text: string, color: string): void {
         this.alertTxt.text = text;
-        this.alertPanel.color = color; // Muda a borda de acordo com o nível do aviso (amarelo ou vermelho)
+        this.alertPanel.color = color; 
         this.alertPanel.isVisible = true;
 
-        // Limpa de forma segura qualquer temporizador ativo no escopo do navegador
         if (this.alertTimer) {
             window.clearTimeout(this.alertTimer);
             this.alertTimer = null;
         }
 
-        // Registra o novo temporizador forçando o uso do escopo global window
         this.alertTimer = window.setTimeout(() => {
             this.alertTimer = null;
             this.alertPanel.isVisible = false;
-        }, 2500); // 4.5 segundos de exibição legível
+            this.ui.markAsDirty(); // Redesenha a HUD ao limpar o aviso
+        }, 2500);
+
+        this.ui.markAsDirty(); // Força a exibição imediata do alerta
     }
 
     public showHint(hasShotOnce: boolean): void {
-        // Limpa o temporizador ativo para evitar conflitos se a dica padrão for solicitada antes
         if (this.hintTimer) {
             window.clearTimeout(this.hintTimer);
             this.hintTimer = null;
@@ -542,11 +535,9 @@ export class GameHUD {
             "👆 Tap one of your pieces, drag it\nbackwards and release to shoot!"
         );
         this.hintPanel.isVisible = !hasShotOnce;
+        this.ui.markAsDirty();
     }
 
-    /**
-     * Exibe um aviso temporário no painel de dicas e restaura o estado padrão após a duração indicada.
-     */
     public showTemporaryHint(textPt: string, textEn: string, durationMs: number = 2000, fallbackHasShotOnce: boolean = true): void {
         if (this.hintTimer) {
             window.clearTimeout(this.hintTimer);
@@ -555,14 +546,14 @@ export class GameHUD {
 
         this.hintTxt.text = this.t(textPt, textEn);
         this.hintPanel.isVisible = true;
+        this.ui.markAsDirty();
 
         this.hintTimer = window.setTimeout(() => {
             this.hintTimer = null;
-            // Retorna ao estado de dica padrão com base no progresso do jogador
             this.showHint(fallbackHasShotOnce);
+            this.ui.markAsDirty();
         }, durationMs);
     }
-
 
     public triggerFloatText(point: Vector3, impulse: number, norm: number): void {
         const ft = this.floatTexts.find(f => f.life <= 0);
@@ -572,15 +563,22 @@ export class GameHUD {
         ft.tb.fontSize = 11 + Math.round(norm * 8);
         ft.tb.isVisible = true;
         ft.tb.moveToVector3(point.add(new Vector3(0, 0.6, 0)), this.scene);
+        this.ui.markAsDirty();
     }
 
     public updateFeedbackAnimations(dt: number): void {
+        let needsRedraw = false;
         for (const f of this.floatTexts) {
             if (f.life <= 0) continue;
             f.life -= dt * 0.5;
-            if (f.life <= 0) { f.tb.isVisible = false; continue; }
+            if (f.life <= 0) { f.tb.isVisible = false; needsRedraw = true; continue; }
+            f.life = Math.max(f.life, 0);
             f.tb.alpha = Math.min(f.life * 2, 1);
             f.tb.linkOffsetY = (f.tb.linkOffsetY as number) - dt * 30;
+            needsRedraw = true;
+        }
+        if (needsRedraw) {
+            this.ui.markAsDirty();
         }
     }
 
@@ -588,10 +586,12 @@ export class GameHUD {
         this.gameOverTitle.text = title;
         this.gameOverPhrase.text = phrase;
         this.gameOverPanel.isVisible = true;
+        this.ui.markAsDirty();
     }
 
     public hideGameOver(): void {
         this.gameOverPanel.isVisible = false;
+        this.ui.markAsDirty();
     }
 
     private t(pt: string, en: string): string {
@@ -603,17 +603,15 @@ export class GameHUD {
         return this.currentLang === 0 ? s.replace(".", ",") : s;
     }
 
-    /**
-     * Oculta o painel de alertas centrais de forma forçada, limpando os temporizadores.
-     * Usado como failsafe na transição de estados de jogo.
-     */
     public hideAlert(): void {
         if (this.alertTimer) {
             window.clearTimeout(this.alertTimer);
             this.alertTimer = null;
         }
         this.alertPanel.isVisible = false;
+        this.ui.markAsDirty();
     }
+
     public dispose(): void {
         if (this.alertTimer) clearTimeout(this.alertTimer);
         if (this.hintTimer) clearTimeout(this.hintTimer);
