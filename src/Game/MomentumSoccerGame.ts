@@ -900,8 +900,9 @@ export class MomentumSoccerGame {
         const isPotentialGoal = Math.abs(pos.x) < (Arena.GOAL_W / 2 - 0.05) && pos.y < Arena.POST_H;
         if (isPotentialGoal) return false;
 
-        // Gatilho de saída: 7.2 no Z (apenas para chutes errados / fora)
-        if (Math.abs(pos.z) <= Arena.GOAL_LINE_Z - 0.3) return false;
+        // Gatilho de saída: ajustado para Arena.GOAL_LINE_Z (7.5) para evitar que rebotes físicos 
+        // na trave ou travessão (onde o Z do centro da bola chega a ~7.25) acionem incorretamente a saída de campo.
+        if (Math.abs(pos.z) <= Arena.GOAL_LINE_Z) return false;
 
         this.isEndlineSequenceActive = true;
         this.currentShot = null;
