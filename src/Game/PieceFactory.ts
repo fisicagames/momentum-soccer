@@ -24,75 +24,68 @@ export interface TeamConfig {
     };
 }
 
-/** Dicionário global de seleções disponíveis */
-export const TEAMS: Record<string, TeamConfig> = {
-    brazil: {
-        id: "brazil",
-        namePt: "Brasil",
-        nameEn: "Brazil",
-        flag: "🇧🇷",
-        colors: {
-            base: new Color3(0.95, 0.78, 0.05),       // Amarelo Canarinho icônico (Corpo)
-            secondary: new Color3(0.05, 0.45, 0.15),  // Verde Bandeira clássico (Domo Interno)
-            knob: new Color3(0.08, 0.25, 0.70)         // Azul Anil
+/**
+ * Registro de Seleções que gerencia o carregamento de dados a partir do JSON estático.
+ */
+export class TeamRegistry {
+    // Fallback de segurança incorporado para garantir que a cena carregue mesmo sem conexão de rede
+    public static TEAMS: Record<string, TeamConfig> = {
+        brazil: {
+            id: "brazil",
+            namePt: "Brasil",
+            nameEn: "Brazil",
+            flag: "🇧🇷",
+            colors: {
+                base: new Color3(0.95, 0.78, 0.05),
+                secondary: new Color3(0.05, 0.45, 0.15),
+                knob: new Color3(0.08, 0.25, 0.70)
+            }
+        },
+        germany: {
+            id: "germany",
+            namePt: "Alemanha",
+            nameEn: "Germany",
+            flag: "🇩🇪",
+            colors: {
+                base: new Color3(0.12, 0.12, 0.12),
+                secondary: new Color3(0.80, 0.12, 0.12),
+                knob: new Color3(0.95, 0.78, 0.05)
+            }
         }
-    },
-    germany: {
-        id: "germany",
-        namePt: "Alemanha",
-        nameEn: "Germany",
-        flag: "🇩🇪",
-        colors: {
-            base: new Color3(0.12, 0.12, 0.12),       // Preto Fosco tradicional (Corpo)
-            secondary: new Color3(0.80, 0.12, 0.12),  // Vermelho vibrante (Domo Interno)
-            knob: new Color3(0.95, 0.78, 0.05)         // Amarelo Ouro
-        }
-    },
-    argentina: {
-        id: "argentina",
-        namePt: "Argentina",
-        nameEn: "Argentina",
-        flag: "🇦🇷",
-        colors: {
-            base: new Color3(0.35, 0.65, 0.88),       // Azul Celeste tradicional (Corpo)
-            secondary: new Color3(0.96, 0.96, 0.96),  // Branco Puro (Domo Interno)
-            knob: new Color3(0.95, 0.78, 0.05)         // Amarelo Sol
-        }
-    },
-    france: {
-        id: "france",
-        namePt: "França",
-        nameEn: "France",
-        flag: "🇫🇷",
-        colors: {
-            base: new Color3(0.05, 0.15, 0.45),       // Azul Marinho (Corpo)
-            secondary: new Color3(0.85, 0.10, 0.10),  // Vermelho (Domo Interno)
-            knob: new Color3(0.96, 0.96, 0.96)         // Branco
-        }
-    },
-    italy: {
-        id: "italy",
-        namePt: "Itália",
-        nameEn: "Italy",
-        flag: "🇮🇹",
-        colors: {
-            base: new Color3(0.05, 0.32, 0.72),       // Azul "Azzurro" clássico (Corpo)
-            secondary: new Color3(0.10, 0.55, 0.25),  // Verde (Domo Interno)
-            knob: new Color3(0.96, 0.96, 0.96)         // Branco
-        }
-    },
-    spain: {
-        id: "spain",
-        namePt: "Espanha",
-        nameEn: "Spain",
-        flag: "🇪🇸",
-        colors: {
-            base: new Color3(0.72, 0.10, 0.10),       // Vermelho Fúria (Corpo)
-            secondary: new Color3(0.95, 0.78, 0.05),  // Amarelo (Domo Interno)
-            knob: new Color3(0.08, 0.25, 0.55)         // Azul Escuro
+    };
+
+    /**
+     * Carrega as seleções a partir do arquivo JSON na pasta pública de forma assíncrona.
+     */
+    public static async loadTeams(): Promise<void> {
+        try {
+            const response = await fetch("./assets/teams.json");
+            if (!response.ok) {
+                throw new Error(`Status de rede: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            const loadedTeams: Record<string, TeamConfig> = {};
+            for (const key of Object.keys(data)) {
+                const t = data[key];
+                loadedTeams[key] = {
+                    id: t.id,
+                    namePt: t.namePt,
+                    nameEn: t.nameEn,
+                    flag: t.flag,
+                    colors: {
+                        base: new Color3(t.colors.base.r, t.colors.base.g, t.colors.base.b),
+                        secondary: new Color3(t.colors.secondary.r, t.colors.secondary.g, t.colors.secondary.b),
+                        knob: new Color3(t.colors.knob.r, t.colors.knob.g, t.colors.knob.b)
+                    }
+                };
+            }
+            TeamRegistry.TEAMS = loadedTeams;
+        } catch (err) {
+            console.warn("TeamRegistry: Falha ao carregar ./assets/teams.json. Usando seleções de fallback.", err);
         }
     }
-};
+}
 
 /** Posições táticas oficiais da formação 3-4-3 (+ goleiro). */
 export type PositionId =

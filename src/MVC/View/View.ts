@@ -11,7 +11,7 @@ import { PhysicsConceptualPhrases } from "./PhysicsConceptualPhrases";
 import { LanguageDetector } from "./LanguageDetector";
 
 // Importações do módulo do jogo para obter os dados das seleções disponíveis
-import { TEAMS, TeamConfig } from "../../Game/PieceFactory";
+import { TeamRegistry, TeamConfig } from "../../Game/PieceFactory";
 
 export class View implements IView {
     private scene: Scene;
@@ -91,7 +91,7 @@ export class View implements IView {
      * de fundo escurecida (backdrop) para cobrir e ocultar o menu principal.
      */
     public showTeamSelection(onConfirm: (playerTeamId: string, cpuTeamId: string) => void): void {
-        const teamList: TeamConfig[] = Object.values(TEAMS);
+        const teamList: TeamConfig[] = Object.values(TeamRegistry.TEAMS);
 
         // Remove instâncias antigas para evitar sobreposição ou vazamento de memória
         if (this.selectionModal) {
@@ -322,7 +322,7 @@ export class View implements IView {
         if (!this.selectionModal) return;
 
         const isPT = this.languageSwitcher.getCurrentLanguage() === 0;
-        const teamList: TeamConfig[] = Object.values(TEAMS);
+        const teamList: TeamConfig[] = Object.values(TeamRegistry.TEAMS);
 
         this.modalTitleTxt.text = isPT ? "ESCOLHA OS TIMES" : "CHOOSE TEAMS";
         this.playerRowLabel.text = isPT ? "SEU TIME" : "YOUR TEAM";

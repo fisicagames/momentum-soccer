@@ -1,0 +1,68 @@
+{
+  "brazil": {
+    "id": "brazil",
+    "namePt": "Brasil",
+    "nameEn": "Brazil",
+    "flag": "🇧🇷",
+    "colors": {
+      "base": { "r": 0.95, "g": 0.78, "b": 0.05 },
+      "secondary": { "r": 0.05, "g": 0.45, "b": 0.15 },
+      "knob": { "r": 0.08, "g": 0.25, "b": 0.70 }
+    }
+  },
+  "germany": {
+    "id": "germany",
+    "namePt": "Alemanha",
+    "nameEn": "Germany",
+    "flag": "🇩🇪",
+    "colors": {
+      "base": { "r": 0.12, "g": 0.12, "b": 0.12 },
+      "secondary": { "r": 0.80, "g": 0.12, "b": 0.12 },
+      "knob": { "r": 0.95, "g": 0.78, "b": 0.05 }
+    }
+  },
+  "argentina": {
+    "id": "argentina",
+    "namePt": "Argentina",
+    "nameEn": "Argentina",
+    "flag": "🇦🇷",
+    "colors": {
+      "base": { "r": 0.35, "g": 0.65, "b": 0.88 },
+      "secondary": { "r": 0.96, "g": 0.96, "b": 0.96 },
+      "knob": { "r": 0.95, "g": 0.78, "b": 0.05 }
+    }
+  },
+  "france": {
+    "id": "france",
+    "namePt": "França",
+    "nameEn": "France",
+    "flag": "🇫🇷",
+    "colors": {
+      "base": { "r": 0.05, "g": 0.15, "b": 0.45 },
+      "secondary": { "r": 0.85, "g": 0.10, "b": 0.10 },
+      "knob": { "r": 0.96, "g": 0.96, "b": 0.96 }
+    }
+  },
+  "italy": {
+    "id": "italy",
+    "namePt": "Itália",
+    "nameEn": "Italy",
+    "flag": "🇮🇹",
+    "colors": {
+      "base": { "r": 0.05, "g": 0.32, "b": 0.72 },
+      "secondary": { "r": 0.10, "g": 0.55, "b": 0.25 },
+      "knob": { "r": 0.96, "g": 0.96, "b": 0.96 }
+    }
+  },
+  "spain": {
+    "id": "spain",
+    "namePt": "Espanha",
+    "nameEn": "Spain",
+    "flag": "🇪🇸",
+    "colors": {
+      "base": { "r": 0.72, "g": 0.10, "b": 0.10 },
+      "secondary": { "r": 0.95, "g": 0.78, "b": 0.05 },
+      "knob": { "r": 0.08, "g": 0.25, "b": 0.55 }
+    }
+  }
+}

@@ -4,6 +4,8 @@ import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { IModel } from "../Model/IModel";
 import { IView } from "../View/IView";
 import { MomentumSoccerGame } from "../../Game/MomentumSoccerGame";
+import { TeamRegistry } from "../../Game/PieceFactory";
+
 
 export class Controller {
     private scene: Scene;
@@ -17,6 +19,17 @@ export class Controller {
         this.model = model;
         this.view = view;
         this.physicsPlugin = physicsPlugin || null;
+
+        // Inicia o fluxo de carregamento de forma assíncrona antes de expor os botões do menu
+        this.initialize();
+    }
+
+    /**
+     * Carrega as seleções assincronamente e inicia as callbacks do Menu Principal
+     */
+    private async initialize(): Promise<void> {
+        // Aguarda a resolução HTTP do arquivo teams.json
+        await TeamRegistry.loadTeams();
 
         this.setupMenuCallbacks();
 

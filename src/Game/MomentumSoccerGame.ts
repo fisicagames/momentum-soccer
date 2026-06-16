@@ -18,7 +18,7 @@ import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 import { CreateSoundAsync, AbstractSound, StaticSound } from "@babylonjs/core/AudioV2";
 
 import { Arena } from "./Arena";
-import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team, TeamConfig, TEAMS } from "./PieceFactory";
+import { Piece, Ball, createPiece, createBall, POSITIONS, PositionId, Team, TeamConfig, TeamRegistry } from "./PieceFactory";
 
 import { SlingshotController, AimState } from "./SlingshotController";
 import { GameHUD } from "./GameHUD";
@@ -134,9 +134,9 @@ export class MomentumSoccerGame {
 
     constructor(scene: Scene, playerTeamId: string = "brazil", cpuTeamId: string = "germany") {
         this.scene = scene;
-        // Carrega as configurações baseado nos ids selecionados ou adota os padrões originais
-        this.playerTeamConfig = TEAMS[playerTeamId] || TEAMS["brazil"];
-        this.cpuTeamConfig = TEAMS[cpuTeamId] || TEAMS["germany"];
+        // Consome os dados de seleções de forma segura através do TeamRegistry
+        this.playerTeamConfig = TeamRegistry.TEAMS[playerTeamId] || TeamRegistry.TEAMS["brazil"];
+        this.cpuTeamConfig = TeamRegistry.TEAMS[cpuTeamId] || TeamRegistry.TEAMS["germany"];
     }
 
     public async start(): Promise<void> {
@@ -176,7 +176,7 @@ export class MomentumSoccerGame {
         this.hud.setLanguage(this.currentLang);
 
         this.hud.setTeams(this.playerTeamConfig, this.cpuTeamConfig);
-        
+
         this.hud.updateScore(this.playerScore, this.cpuScore, this.possession);
         this.hud.updateTimer(this.timeLeft, this.half);
         this.hud.updateTurnText(this.teamTouchesLeft, MomentumSoccerGame.TEAM_TOUCHES, this.gameState);
