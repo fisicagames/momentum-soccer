@@ -1182,8 +1182,8 @@ export class MomentumSoccerGame {
         const gameOverTitle = outcome === "win"
             ? this.t("🏆 Você venceu!", "🏆 You won!")
             : outcome === "loss"
-                ? this.t("😞 O adversário venceu…", "😞 The opponent won…")
-                : this.t("🤝 Empate!", "🤝 It's a draw!");
+                ? this.t("O adversário venceu…", "The opponent won…")
+                : this.t("Empate!", "It's a draw!");
 
         // ── ATUALIZAÇÃO DIDÁTICA: Sorteia uma frase de física aleatória e traduzida ──
         const gameOverPhrase = PhysicsConceptualPhrases.getRandomMomentumPhrase(this.currentLang);
