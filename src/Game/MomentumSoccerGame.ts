@@ -1,3 +1,4 @@
+import { PhysicsConceptualPhrases } from "../MVC/View/PhysicsConceptualPhrases";
 import { SoundModel } from "../MVC/Model/SoundModel";
 import { Scene } from "@babylonjs/core/scene";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
@@ -1166,10 +1167,10 @@ export class MomentumSoccerGame {
             : outcome === "loss"
                 ? this.t("😞 O adversário venceu…", "😞 The opponent won…")
                 : this.t("🤝 Empate!", "🤝 It's a draw!");
-        const gameOverPhrase = this.t(
-            "💡 Quanto maior a massa, menor a velocidade\npara o mesmo impulso: v = p/m.",
-            "💡 The larger the mass, the lower the velocity\nfor the same impulse: v = p/m."
-        );
+
+        // ── ATUALIZAÇÃO DIDÁTICA: Sorteia uma frase de física aleatória e traduzida ──
+        const gameOverPhrase = PhysicsConceptualPhrases.getRandomMomentumPhrase(this.currentLang);
+
         this.hud.showGameOver(gameOverTitle, gameOverPhrase);
         this.onGameOverCallback?.();
     }

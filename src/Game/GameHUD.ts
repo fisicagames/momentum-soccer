@@ -386,7 +386,11 @@ export class GameHUD {
         this.gameOverPhrase = new TextBlock("goPhrase", "");
         this.gameOverPhrase.color = "#9FD4FF";
         this.gameOverPhrase.fontSize = 13;
-        this.gameOverPhrase.top = "-10px";
+        this.gameOverPhrase.textWrapping = true;     // Ativa a quebra automática de linha
+        this.gameOverPhrase.paddingLeft = "16px";     // Margem interna esquerda para respiro visual
+        this.gameOverPhrase.paddingRight = "16px";    // Margem interna direita para respiro visual
+        this.gameOverPhrase.height = "70px";          // Limita a caixa do texto para evitar colisões
+        this.gameOverPhrase.top = "-5px";             // Posicionamento perfeitamente centralizado
         this.gameOverPanel.addControl(this.gameOverPhrase);
 
         this.playAgainBtn = Button.CreateSimpleButton("playAgain", "");
@@ -446,11 +450,11 @@ export class GameHUD {
                 this.turnTxt.color = "#9FD4FF";
                 break;
             case "CPU_TURN":
-                this.turnTxt.text = this.t(`📺 Posse do adversário — Toques: ${touches}`, `📺 Opponent's possession — Touches: ${touches}`);
+                this.turnTxt.text = this.t(`Posse do adversário — Toques: ${touches}`, `Opponent's possession — Touches: ${touches}`);
                 this.turnTxt.color = "#FFAA99";
                 break;
             case "ROLLING":
-                this.turnTxt.text = this.t("⚽ Bola em jogo…", "⚽ Ball in play…");
+                this.turnTxt.text = this.t("Bola em jogo…", "Ball in play…");
                 this.turnTxt.color = "#CCCCCC";
                 break;
             case "HALF_TIME":
