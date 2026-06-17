@@ -17,6 +17,8 @@ export class Model implements IModel {
         this.physicsPlugin = physicsPlugin || null;
 
         this.startMusic();
+        // ── GARANTE QUE O SOM DE TORCIDA COMECE EM SILÊNCIO NO MENU PRINCIPAL ──
+        this.pauseMusic();
     }
 
     private startMusic() {
@@ -25,7 +27,7 @@ export class Model implements IModel {
         //Music by Dimitrios Gkorilas from Pixabay
         this.backgroundMusic = new SoundModel(
             "backgroundSound",
-            "./assets/sounds/freesound_community-soccer-stadium-10-6709-compress.mp3",
+            "./assets/sounds/football-sport-crowd.mp3",
             true
         );
         this.backgroundMusic.setVolume(1.0);

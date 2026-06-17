@@ -137,7 +137,10 @@ export class Controller {
             this.game.dispose();
             this.game = null;
         }
-        this.model.resumeMusic();
+        
+        // ── CORREÇÃO: Pausa o som do estádio ao retornar para o menu inicial ──
+        this.model.pauseMusic();
+
         this.updateMenuRecord();
         this.view.updateMainMenuVisibility(true);
     }
@@ -155,6 +158,10 @@ export class Controller {
         this.game.setLanguage(this.view.getCurrentLanguage());
         this.game.setOnGameOver(() => this.model.pauseMusic());
         this.game.setOnGameResume(() => this.model.resumeMusic());
+        
+        //Inicia o som de torcida somente quando a partida começa de fato ──
+        this.model.resumeMusic();
+
         this.view.showMenuButton();
     }
 }

@@ -83,10 +83,10 @@ export class SoundModel implements ISoundInterface {
             return;
         }
 
-        if (SoundModel.isMusicEnabled && !this._isPlaying) {
+        // ── CORREÇÃO: Verifica se o jogo já solicitou pausa antes do download terminar ──
+        if (SoundModel.isMusicEnabled && !this._isPlaying && !this._gamePaused) {
             this._isPlaying = true;
             
-            // CORREÇÃO CRUCIAL V9: 
             // Se já existem instâncias ativas na memória (ou seja, foi pausado antes), usamos resume()
             // Se for 0, usamos play() para instanciar a reprodução na primeira vez.
             if (this._sound.activeInstancesCount > 0) {
