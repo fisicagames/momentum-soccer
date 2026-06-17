@@ -47,14 +47,8 @@ export interface SlingshotOptions {
 
 /**
  * Mecânica de slingshot: clicar em um botão do time e arrastar para trás.
- *
- * - O arrasto traseiro define o impulso J (momento a ser aplicado: p = J).
- * - A mira dianteira mostra a predição da trajetória com comprimento ∝ v = J/m:
- *   o mesmo recuo no Velocista (m=1) projeta uma seta longa; no Tanque (m=8), curta.
  */
 export class SlingshotController {
-    /** Escala visual da seta dianteira (m de seta por m/s projetado),
-     *  ajustada ao impulso máximo para a seta caber na tela (J_max 13 → 18). */
     private static readonly ARROW_SCALE = 0.33;
     private static readonly MIN_IMPULSE = 0.4;
 
@@ -65,7 +59,7 @@ export class SlingshotController {
     private aimingPiece: Piece | null = null;
     private aim: AimState | null = null;
 
-    // Meshes reutilizados da mira (sem alocação por frame)
+    // Meshes reutilizados da mira
     private pullLine!: Mesh;
     private aimArrow!: Mesh;
     private aimHead!: Mesh;
@@ -78,7 +72,6 @@ export class SlingshotController {
     private readonly _tmp = Vector3.Zero();
     private readonly _quat = Quaternion.Identity();
 
-    /** Cancela a mira sem disparar (ponteiro perdido, saiu do canvas, blur). */
     private readonly cancelHandler = () => this.cancelAim();
 
     constructor(scene: Scene, opts: SlingshotOptions) {
@@ -94,8 +87,6 @@ export class SlingshotController {
             }
         });
 
-        // Eventos que interrompem o arrasto sem um POINTERUP correspondente:
-        // a mira é cancelada e o painel/visuais são ocultados (failsafe)
         const canvas = scene.getEngine().getRenderingCanvas()!;
         canvas.addEventListener("pointerleave", this.cancelHandler);
         canvas.addEventListener("pointercancel", this.cancelHandler);
@@ -106,17 +97,12 @@ export class SlingshotController {
         return this.aimingPiece !== null;
     }
 
-    /**
-     * Cancela imediatamente qualquer mira ou arrasto ativo.
-     * Failsafe para evitar estados corrompidos por transições externas de turnos ou reinicializações.
-     */
     public forceCancel(): void {
         if (this.aimingPiece) {
             this.cancelAim();
         }
     }
 
-    /** Encerra o arrasto atual sem disparo, restaurando câmera e HUD. */
     private cancelAim(): void {
         if (!this.aimingPiece) return;
         this.hideAim();
@@ -128,18 +114,15 @@ export class SlingshotController {
     }
 
     private buildAimMeshes(): void {
-        // Linha do arrasto traseiro (vermelha)
         const pullMat = new StandardMaterial("pullMat", this.scene);
         pullMat.diffuseColor = new Color3(0.9, 0.25, 0.2);
         pullMat.emissiveColor = new Color3(0.55, 0.12, 0.1);
         this.pullLine = MeshBuilder.CreateBox("pullLine", { width: 0.07, height: 0.04, depth: 1 }, this.scene);
         this.pullLine.material = pullMat;
 
-        // Marcador no ponto de arrasto
         this.dragMarker = MeshBuilder.CreateCylinder("dragMarker", { diameter: 0.3, height: 0.04 }, this.scene);
         this.dragMarker.material = pullMat;
 
-        // Seta de projeção dianteira (amarela): comprimento = v · ARROW_SCALE
         const aimMat = new StandardMaterial("aimMat", this.scene);
         aimMat.diffuseColor = new Color3(1.0, 0.85, 0.1);
         aimMat.emissiveColor = new Color3(0.65, 0.5, 0.05);
@@ -159,7 +142,6 @@ export class SlingshotController {
 
     private onPointerDown(): void {
         if (!this.opts.canAim() || this.aimingPiece) {
-            // Se o jogador tocou na tela fora da sua vez de mirar, tenta encontrar se ele clicou em uma de suas peças
             if (!this.opts.canAim() && !this.aimingPiece) {
                 const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY, (mesh: AbstractMesh) => {
                     const piece = mesh.metadata?.piece as Piece | undefined;
@@ -170,7 +152,6 @@ export class SlingshotController {
                     ? (pick.pickedMesh.metadata.piece as Piece)
                     : null;
 
-                // Tolerância de toque (mobile): suporte a toques próximos às peças
                 if (!piece && this.pointerToGround(0.15, this._groundPoint)) {
                     const TOUCH_RADIUS = 1.0;
                     let bestDist = TOUCH_RADIUS;
@@ -203,10 +184,8 @@ export class SlingshotController {
             return;
         }
 
-        // Tolerância de toque (mobile): sem acerto direto, pega a peça mais
-        // próxima do ponto tocado no plano do campo, dentro de um raio generoso.
         if (!piece && this.pointerToGround(0.15, this._groundPoint)) {
-            const TOUCH_RADIUS = 1.0; // m
+            const TOUCH_RADIUS = 1.0;
             let bestDist = TOUCH_RADIUS;
             for (const p of this.opts.playerPieces()) {
                 if (!this.opts.canSelectPiece(p)) continue;
@@ -219,22 +198,17 @@ export class SlingshotController {
         if (!piece) return;
 
         this.aimingPiece = piece;
-        // Durante a mira, o arrasto não deve orbitar a câmera
         this.opts.camera.detachControl();
     }
 
     private onPointerMove(): void {
         if (!this.aimingPiece) return;
 
-        // TRAVA DE SEGURANÇA: Se as condições de mira do jogo mudarem durante o arrasto
-        // (ex: estouro de turnos ou tempo esgotado), cancela a mira imediatamente e limpa a HUD.
         if (!this.opts.canAim()) {
             this.cancelAim();
             return;
         }
 
-        // Com o pointer capture do arrasto, "pointerleave" não dispara: a
-        // saída do canvas é detectada pelas próprias coordenadas do ponteiro
         const canvas = this.scene.getEngine().getRenderingCanvas()!;
         if (this.scene.pointerX < 0 || this.scene.pointerY < 0 ||
             this.scene.pointerX > canvas.clientWidth || this.scene.pointerY > canvas.clientHeight) {
@@ -260,7 +234,6 @@ export class SlingshotController {
         }
     }
 
-    /** Projeta o ponteiro no plano do campo (y = altura do centro da peça). */
     private pointerToGround(planeY: number, result: Vector3): boolean {
         const ray = this.scene.createPickingRay(this.scene.pointerX, this.scene.pointerY, null, this.opts.camera);
         if (Math.abs(ray.direction.y) < 1e-6) return false;
@@ -276,9 +249,6 @@ export class SlingshotController {
 
         if (!this.pointerToGround(piecePos.y, this._groundPoint)) return;
 
-        // Arrasto traseiro: vetor do ponteiro até a peça define direção e intensidade.
-        // O teto dinâmico (energia restante da peça e saída de bola) trava o
-        // recuo efetivo, o impulso e a seta de projeção no valor correspondente.
         const cap = this.opts.impulseCap(piece);
         const maxDragNow = this.opts.maxDrag * Math.min(cap / this.opts.maxImpulse, 1);
         piecePos.subtractToRef(this._groundPoint, this._dragVec);
@@ -288,9 +258,13 @@ export class SlingshotController {
 
         this._dir.copyFrom(this._dragVec).normalize();
 
-        // Impulso proporcional ao recuo: J = (recuo / recuo_max) · J_max
-        const impulse = (dragLen / this.opts.maxDrag) * this.opts.maxImpulse;
-        // Fórmula visual crucial: v = p / m
+        // ── CURVA EXPOENCIAL DE PRECISÃO AJUSTADA (1.8) ──
+        // O expoente de 1.8 empurra a ativação das forças médias e fortes ainda mais para trás,
+        // garantindo que pequenos arrastes de ajuste fino ocorram a uma distância muito confortável do botão.
+        const fraction = dragLen / this.opts.maxDrag;
+        const nonLinearFraction = Math.pow(fraction, 1.8); 
+        const impulse = nonLinearFraction * this.opts.maxImpulse;
+        
         const velocity = impulse / piece.spec.mass;
 
         this.aim = { piece, impulse, velocity, direction: this._dir.clone() };
@@ -301,6 +275,7 @@ export class SlingshotController {
     private drawAim(piecePos: Vector3, dragLen: number, velocity: number): void {
         const y = 0.06;
         const dir = this._dir;
+        const piece = this.aimingPiece!;
 
         // Linha traseira: da peça ao ponto de arrasto (limitado)
         this._tmp.copyFrom(dir).scaleInPlace(-dragLen / 2).addInPlace(piecePos);
@@ -311,8 +286,12 @@ export class SlingshotController {
         this.pullLine.lookAt(this._tmp);
         this.dragMarker.position.set(this._tmp.x, y, this._tmp.z);
 
-        // Seta dianteira: comprimento proporcional a v = J/m
-        const arrowLen = Math.max(velocity * SlingshotController.ARROW_SCALE, 0.15);
+        // ── SETA DIANTEIRA: COMPRIMENTO MÍNIMO ADAPTATIVO ──
+        // Garante que a seta sempre ultrapasse a borda física de qualquer peça (com margem de 35cm),
+        // tornando a direção 100% visível para o jogador mesmo em arrastes mínimos de precisão.
+        const minArrowLen = piece.spec.radius + 0.35; 
+        const arrowLen = Math.max(velocity * SlingshotController.ARROW_SCALE, minArrowLen);
+        
         this._tmp.copyFrom(dir).scaleInPlace(arrowLen / 2).addInPlace(piecePos);
         this.aimArrow.position.set(this._tmp.x, y, this._tmp.z);
         this.aimArrow.scaling.z = arrowLen;
@@ -320,7 +299,7 @@ export class SlingshotController {
         this._tmp.y = y;
         this.aimArrow.lookAt(this._tmp);
 
-        // Ponta da seta: cone apontando na direção do disparo
+        // Ponta da seta
         this.aimHead.position.set(this._tmp.x, y, this._tmp.z);
         Quaternion.FromUnitVectorsToRef(Vector3.UpReadOnly, dir, this._quat);
         this.aimHead.rotationQuaternion!.copyFrom(this._quat);

@@ -34,7 +34,10 @@ type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TI
 export class MomentumSoccerGame {
     public static readonly MAX_IMPULSE = 18;
     public static readonly KICKOFF_MAX_IMPULSE = 1.6; // Força do kickoff calibrada em 1.6
-    private static readonly MAX_DRAG = 2.2;
+    // ── CONFIGURAÇÃO DE CONTROLE DE ARRASTO ERGONÔMICO ──
+    // Aumentado em 1.5x (de 2.2 para 3.3) para afastar a área de toque e evitar a oclusão do dedo
+    private static readonly MAX_DRAG = 3.3;
+
     private static readonly HALF_SECONDS = 180;
     private static readonly SETTLE_SPEED = 0.18;
     private static readonly ROLLING_TIMEOUT = 8;
