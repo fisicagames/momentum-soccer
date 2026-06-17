@@ -28,7 +28,7 @@ import { CPUAgent } from "./CPUAgent";
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TIME" | "GAMEOVER";
 
 /**
- * Joule Cup 2026 — futebol de botão por turnos para ensinar momento linear
+ * Momentum Cup 2026 — futebol de botão por turnos para ensinar momento linear
  * e conservação de energia.
  */
 export class MomentumSoccerGame {

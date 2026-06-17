@@ -8,7 +8,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 
-//TODO: Re-enable if needed for Joule Cup 2026:
+//TODO: Re-enable if needed for Momentum Cup 2026:
 // import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 // import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 // import { CameraInitializer } from "./CameraInitializer";

@@ -5,7 +5,7 @@ import { Arena } from "./Arena";
 import { MomentumSoccerGame } from "./MomentumSoccerGame";
 
 /**
- * Agente de Inteligência Artificial para a CPU (Joule Cup 2026).
+ * Agente de Inteligência Artificial para a CPU (Momentum Cup 2026).
  * 
  * Versão adaptativa com DDA (Dynamic Difficulty Adjustment).
  * Escala sua precisão, mira e agressividade com base no saldo de gols da partida.
