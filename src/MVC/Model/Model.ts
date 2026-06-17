@@ -39,7 +39,7 @@ export class Model implements IModel {
             "./assets/sounds/alex_kizenkov-start-now-synth-pop-142103-compress.mp3",
             true // Autoplay ativado para iniciar o menu em looping
         );
-        this.menuMusic.setVolume(0.85); // Volume sutil para dar respiro aos cliques
+        this.menuMusic.setVolume(0.40); // Volume sutil para dar respiro aos cliques
         this.allSounds.push(this.menuMusic);
 
         // Garante que o som do estádio comece silenciado enquanto o usuário navega pelo menu
