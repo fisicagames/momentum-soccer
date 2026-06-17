@@ -273,7 +273,7 @@ export class View implements IView {
         selectorContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
         rowContainer.addControl(selectorContainer);
 
-        // Botão Esquerdo (Prev) - Nome único e evento onPointerClick
+        // Botão Esquerdo (Prev) - Nome único e comportamento de segurar para rolar
         const btnPrev = Button.CreateSimpleButton(`${parent.name}_btnPrev`, "◀");
         btnPrev.width = "40px";
         btnPrev.height = "36px";
@@ -282,7 +282,7 @@ export class View implements IView {
         btnPrev.cornerRadius = 6;
         btnPrev.thickness = 1;
         btnPrev.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        btnPrev.onPointerClickObservable.add(onPrev); // Modificado para Clique robusto
+        this.setupHoldToScroll(btnPrev, onPrev); // Configura o Hold-to-Scroll automático
         selectorContainer.addControl(btnPrev);
 
         // Bloco de Texto central de exibição da Seleção
@@ -296,13 +296,12 @@ export class View implements IView {
         valueTxt.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
         valueTxt.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
         
-        // ── SOLUÇÃO DO BUG: Torna o texto invisível para detecção de cliques ──
-        // Isso permite que o ponteiro do mouse "atravesse" o texto e atinja o botão btnPrev por baixo.
+        // Torna o texto invisível para detecção de cliques
         valueTxt.isHitTestVisible = false; 
         
         selectorContainer.addControl(valueTxt);
 
-        // Botão Direito (Next) - Nome único e evento onPointerClick
+        // Botão Direito (Next) - Nome único e comportamento de segurar para rolar
         const btnNext = Button.CreateSimpleButton(`${parent.name}_btnNext`, "▶");
         btnNext.width = "40px";
         btnNext.height = "36px";
@@ -311,10 +310,49 @@ export class View implements IView {
         btnNext.cornerRadius = 6;
         btnNext.thickness = 1;
         btnNext.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        btnNext.onPointerClickObservable.add(onNext); // Modificado para Clique robusto
+        this.setupHoldToScroll(btnNext, onNext); // Configura o Hold-to-Scroll automático
         selectorContainer.addControl(btnNext);
 
         return { label, value: valueTxt };
+    }
+
+    /**
+     * Configura o comportamento de pressionar e segurar para rolar automaticamente
+     * a lista de seleções em um intervalo de tempo confortável.
+     */
+    private setupHoldToScroll(button: Button, action: () => void): void {
+        let timeoutId: any = null;
+        let intervalId: any = null;
+
+        const stopScrolling = () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        };
+
+        // Evento ao segurar o clique/toque (onPointerDown)
+        button.onPointerDownObservable.add(() => {
+            // 1. Executa imediatamente uma vez no primeiro toque (comportamento de clique simples)
+            action();
+
+            // 2. Aguarda um delay para certificar que o usuário está segurando o botão
+            stopScrolling(); // Limpeza preventiva de instâncias
+            timeoutId = setTimeout(() => {
+                // 3. Inicia o loop infinito em velocidade confortável (160ms por mudança)
+                intervalId = setInterval(() => {
+                    action();
+                }, 160);
+            }, 350); // Atraso de 350ms para diferenciar clique curto de segurar
+        });
+
+        // ── FAILSAFE: Interrompe a rolagem ao soltar ou arrastar o dedo/mouse para fora do botão ──
+        button.onPointerUpObservable.add(stopScrolling);
+        button.onPointerOutObservable.add(stopScrolling);
     }
 
     /** Atualiza as strings traduzidas das seleções e elementos do modal dinamicamente */
