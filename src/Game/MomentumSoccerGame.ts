@@ -359,12 +359,26 @@ export class MomentumSoccerGame {
         this.isEndlineSequenceActive = false;
         const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
         const oppPieces = team === "player" ? this.cpuPieces : this.playerPieces;
-        const piece = ownPieces.find(p => p.spec.id === "center_forward")!;
+        
+        // ── FAILSAFE PARA EXPULSÃO NO CHUTE DE SAÍDA ──
+        // Se o centroavante titular foi expulso (cartão vermelho), escolhemos outra peça ativa
+        // de linha para cobrar a saída, evitando falhas de referência nula (undefined)
+        let piece = ownPieces.find(p => p.spec.id === "center_forward");
+        if (!piece) {
+            piece = ownPieces.find(p => p.spec.id !== "goalkeeper") || ownPieces[0];
+        }
+
         const gap = this.ball.radius + piece.spec.radius + piece.spec.radius;
         const sign = team === "player" ? 1 : -1;
         this.teleport(piece.mesh, this._tmp.set(0, piece.home.y, sign * gap), piece.aggregate);
 
-        const defender = oppPieces.find(p => p.spec.id === "center_forward")!;
+        // ── FAILSAFE PARA EXPULSÃO NA BARREIRA DO CHUTE DE SAÍDA ──
+        // Se o centroavante oponente foi expulso, escolhemos outro jogador de linha para a barreira
+        let defender = oppPieces.find(p => p.spec.id === "center_forward");
+        if (!defender) {
+            defender = oppPieces.find(p => p.spec.id !== "goalkeeper") || oppPieces[0];
+        }
+        
         this.teleport(defender.mesh, this._tmp.set(0, defender.home.y, sign * 2.2), defender.aggregate);
 
         this.kickoffActive = true;
@@ -379,13 +393,16 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * Realiza um passe automático e suave de recuo do centroavante para o seu próprio campo.
-     * Um pequeno delay de 60ms e um vetor local isolado garantem estabilidade absoluta
-     * contra interferências do ciclo de renderização da câmera.
+     * Realiza um passe automático e suave de recuo do centroavante (ou substituto ativo) para o seu próprio campo.
      */
     private executeAutomaticKickoff(team: Team): void {
         const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
-        const piece = ownPieces.find(p => p.spec.id === "center_forward")!;
+        
+        // ── FAILSAFE PARA EXPULSÃO NO CHUTE DE RECUO AUTOMÁTICO ──
+        let piece = ownPieces.find(p => p.spec.id === "center_forward");
+        if (!piece) {
+            piece = ownPieces.find(p => p.spec.id !== "goalkeeper") || ownPieces[0];
+        }
         
         const dir = this.ball.mesh.position.subtract(piece.mesh.position);
         dir.y = 0;
