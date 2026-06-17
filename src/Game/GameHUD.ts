@@ -367,32 +367,35 @@ export class GameHUD {
 
         this.gameOverPanel = new Rectangle("gameOver");
         this.gameOverPanel.width = "86%";
-        this.gameOverPanel.height = "220px";
+        this.gameOverPanel.height = "250px"; // Expandido de 220px para 250px para comportar 4 linhas
         this.gameOverPanel.cornerRadius = 14;
         this.gameOverPanel.thickness = 2;
         this.gameOverPanel.color = "#FFD24A";
         this.gameOverPanel.background = "rgba(8,10,28,0.92)";
         this.gameOverPanel.isVisible = false;
-        this.gameOverPanel.zIndex = 160; // Z-Index maior para desenhar por cima de tudo no final do jogo
+        this.gameOverPanel.zIndex = 160; 
         this.ui.addControl(this.gameOverPanel);
 
+        // Título de Fim de Jogo
         this.gameOverTitle = new TextBlock("goTitle", "");
         this.gameOverTitle.color = "white";
         this.gameOverTitle.fontSize = 22;
         this.gameOverTitle.fontWeight = "bold";
-        this.gameOverTitle.top = "-65px";
+        this.gameOverTitle.top = "-75px"; // Ajustado de -65px para simetria vertical
         this.gameOverPanel.addControl(this.gameOverTitle);
 
+        // Frase Conceitual de Física
         this.gameOverPhrase = new TextBlock("goPhrase", "");
         this.gameOverPhrase.color = "#9FD4FF";
         this.gameOverPhrase.fontSize = 13;
-        this.gameOverPhrase.textWrapping = true;     // Ativa a quebra automática de linha
-        this.gameOverPhrase.paddingLeft = "16px";     // Margem interna esquerda para respiro visual
-        this.gameOverPhrase.paddingRight = "16px";    // Margem interna direita para respiro visual
-        this.gameOverPhrase.height = "70px";          // Limita a caixa do texto para evitar colisões
-        this.gameOverPhrase.top = "-5px";             // Posicionamento perfeitamente centralizado
+        this.gameOverPhrase.textWrapping = true;
+        this.gameOverPhrase.paddingLeft = "16px";
+        this.gameOverPhrase.paddingRight = "16px";
+        this.gameOverPhrase.height = "90px"; // Expandido de 70px para 90px (folga para 4 linhas)
+        this.gameOverPhrase.top = "-5px";    // Mantido centralizado entre título e botão
         this.gameOverPanel.addControl(this.gameOverPhrase);
 
+        // Botão de Jogar Novamente
         this.playAgainBtn = Button.CreateSimpleButton("playAgain", "");
         this.playAgainBtn.width = "190px";
         this.playAgainBtn.height = "42px";
@@ -401,7 +404,7 @@ export class GameHUD {
         this.playAgainBtn.background = "#1A7A2E";
         this.playAgainBtn.fontSize = 15;
         this.playAgainBtn.fontWeight = "bold";
-        this.playAgainBtn.top = "60px";
+        this.playAgainBtn.top = "75px"; // Ajustado de 60px para 75px para acompanhar a nova base
         this.playAgainBtn.onPointerClickObservable.add(onRestart);
         this.gameOverPanel.addControl(this.playAgainBtn);
     }
