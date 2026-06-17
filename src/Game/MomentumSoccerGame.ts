@@ -135,6 +135,9 @@ export class MomentumSoccerGame {
     private playerTeamConfig!: TeamConfig;
     private cpuTeamConfig!: TeamConfig;
 
+    // ── GETTERS DE CONFIGURAÇÃO DE TIMES ATIVOS ──
+    public getPlayerTeamConfig(): TeamConfig { return this.playerTeamConfig; }
+    public getCpuTeamConfig(): TeamConfig { return this.cpuTeamConfig; }
 
     constructor(scene: Scene, playerTeamId: string = "brazil", cpuTeamId: string = "germany") {
         this.scene = scene;

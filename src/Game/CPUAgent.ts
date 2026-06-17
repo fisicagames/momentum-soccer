@@ -1,19 +1,75 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { Piece, Ball } from "./PieceFactory";
+import { Piece, Ball, TeamConfig } from "./PieceFactory";
 import { Arena } from "./Arena";
 import { MomentumSoccerGame } from "./MomentumSoccerGame";
 
 /**
- * Agente de Inteligência Artificial para a CPU (Momentum Cup 2026).
+ * Perfil de Atributos Táticos inspirado em dados Opta reais
+ */
+interface AIProfile {
+    passingPrecision: number;  // 0.0 a 1.0 (influencia o noiseFactor/dispersão)
+    smartAim: boolean;         // se busca fugir do goleiro ou mira no centro
+    shootAppetite: number;     // agressividade de finalização de média/longa distância
+    minPassImpulse: number;    // firmeza e velocidade na troca de passes
+}
+
+/**
+ * Agente de Inteligência Artificial para a CPU (Physics Cup 2026).
  * 
- * Versão adaptativa com DDA (Dynamic Difficulty Adjustment).
- * Escala sua precisão, mira e agressividade com base no saldo de gols da partida.
+ * Versão tática baseada em atributos de seleções, eliminando o DDA artificial.
  */
 export class CPUAgent {
     private static readonly BLOCKED_PENALTY = 0.15;
     private static readonly W_PROXIMITY = 0.70;
     private static readonly W_ALIGNMENT = 0.30;
+
+    /** 
+     * Resolve e gera a personalidade tática da seleção com base em dados de desempenho.
+     */
+    private static getAIProfile(teamId: string): AIProfile {
+        const profile: AIProfile = {
+            passingPrecision: 0.82,
+            smartAim: true,
+            shootAppetite: 0.60,
+            minPassImpulse: 2.8
+        };
+
+        // Classificação das 48 seleções do teams.json em 3 arquétipos de performance
+        const eliteTeams = [
+            "brazil", "germany", "argentina", "france", 
+            "england", "portugal", "netherlands", "belgium", "spain"
+        ];
+        
+        const structuredTeams = [
+            "australia", "austria", "colombia", "korea_republic", 
+            "cote_d_ivoire", "croatia", "egypt", "ecuador", 
+            "usa", "japan", "morocco", "mexico", "norway", 
+            "senegal", "sweden", "switzerland", "turkiye", "uruguay"
+        ];
+
+        if (eliteTeams.includes(teamId)) {
+            // Potências de Elite: Precisão matemática absoluta, passes na velocidade ideal e mira nas traves
+            profile.passingPrecision = 1.0;   // Resulta matematicamente em noiseFactor = 0.00
+            profile.smartAim = true;
+            profile.shootAppetite = 0.85;
+            profile.minPassImpulse = 3.4;     // Firmeza e velocidade calibradas em 3.4
+        } else if (structuredTeams.includes(teamId)) {
+            // Equipes Estruturadas: Consistência tática, boa colocação e apoio coletivo
+            profile.passingPrecision = 0.88;
+            profile.smartAim = true;
+            profile.shootAppetite = 0.72;
+            profile.minPassImpulse = 2.9;
+        } else {
+            // Equipes Desafiantes (Demais do JSON): Ritmo cadenciado, chutes seguros de curta distância
+            profile.passingPrecision = 0.78;
+            profile.smartAim = Math.random() < 0.75; // Perda ocasional de foco sob pressão
+            profile.shootAppetite = 0.52;
+            profile.minPassImpulse = 2.6;
+        }
+
+        return profile;
+    }
 
     /** Executa a decisão tática da CPU no turno ativo e dispara o botão correspondente */
     public static executeTurn(game: MomentumSoccerGame): void {
@@ -21,41 +77,15 @@ export class CPUAgent {
         const ballPos = ball.mesh.position;
         const playerGoal = new Vector3(0, ballPos.y, -Arena.GOAL_LINE_Z - 0.3);
 
-        // ── MOTOR DDA: CÁLCULO DE INTENSIDADE DA IA ──
-        const playerScore = game.getPlayerScore();
-        const cpuScore = game.getCpuScore();
-        const goalDiff = playerScore - cpuScore; // Saldo positivo = CPU perdendo; Saldo negativo = CPU vencendo
+        // ── RESOLUÇÃO DE PERFIL TÁTICO POR SELEÇÃO ATIVA ──
+        const cpuConfig = (game as any).getCpuTeamConfig ? game.getCpuTeamConfig() : null;
+        const cpuTeamId = cpuConfig ? cpuConfig.id : "germany";
+        const profile = CPUAgent.getAIProfile(cpuTeamId);
 
-        // Parâmetros de dificuldade dinâmica que serão ajustados pelo saldo
-        let noiseFactor = 0.06; // Dispersão física do chute (0 = precisão robótica perfeita)
-        let smartAim = true;    // Se chuta fugindo do goleiro ou mira no centro
-        let minPassImpulse = 3.2; // Firmeza do passe
-        
-        if (goalDiff >= 2) {
-            // CPU PERDENDO POR 2 OU MAIS: Fúria total, precisão matemática absoluta
-            noiseFactor = 0.00;
-            smartAim = true;
-            minPassImpulse = 3.4;
-        } else if (goalDiff === 1) {
-            // CPU PERDENDO POR 1: Jogo sério de elite
-            noiseFactor = 0.02;
-            smartAim = true;
-            minPassImpulse = 3.2;
-        } else if (goalDiff === 0 || goalDiff === -1) {
-            // EMPATE OU VENCENDO POR 1: Dificuldade balanceada (padrão original)
-            noiseFactor = 0.07;
-            smartAim = true;
-            minPassImpulse = 2.8;
-        } else {
-            // CPU VENCENDO POR 2 OU MAIS (GOLEADA): CPU "relaxa", comete erros e mira no meio
-            noiseFactor = 0.12;
-            smartAim = false;
-            minPassImpulse = 2.4;
-        }
-
-        noiseFactor = 0.00;
-        smartAim = true;
-        minPassImpulse = 3.4;
+        // Mapeamento dinâmico de atributos baseados no país da CPU
+        const noiseFactor = (1 - profile.passingPrecision) * 0.40; // Erro proporcional à precisão
+        const smartAim = profile.smartAim;
+        const minPassImpulse = profile.minPassImpulse;
 
         // ── REGRA TÁTICA DA PEQUENA ÁREA ──
         const isBallInSmallArea = ballPos.z >= Arena.GOAL_LINE_Z - Arena.AREA_D - 0.1 
@@ -71,14 +101,12 @@ export class CPUAgent {
         
         if (candidates.length === 0) return;
 
-        // ── DETERMINAÇÃO DO ALVO (MIRA ADAPTATIVA CALIBRADA) ──
+        // ── DETERMINAÇÃO DO ALVO ──
         let shootTarget = playerGoal.clone();
         if (smartAim) {
             const opponentGk = game.getPlayerPieces().find(p => p.spec.id === "goalkeeper");
             if (opponentGk) {
                 const gkX = opponentGk.mesh.position.x;
-                // Calibração de segurança: Ajustado de 1.22 para 0.95 para garantir que a bola
-                // entre de forma limpa, criando um colchão físico de segurança contra a trave (que fica em 1.50).
                 shootTarget.x = gkX >= 0 ? -0.95 : 0.95; 
             } else {
                 shootTarget.x = Math.random() < 0.5 ? -0.95 : 0.95;
@@ -88,9 +116,9 @@ export class CPUAgent {
         const goalPathClear = !CPUAgent.isCorridorBlocked(game, ballPos, shootTarget, ball.radius, [ball.mesh]);
         const distToGoal = Vector3.Distance(ballPos, shootTarget);
         
-        // IA ajusta apetite ao risco de chute conforme a intensidade do jogo
-        const shootThreshold = goalDiff >= 1 ? 8.5 : 7.0; 
-        const randomShotRisk = distToGoal < shootThreshold && Math.random() < (goalDiff >= 1 ? 0.75 : 0.45);
+        // Limiar de agressividade de chute influenciado pelo apetite da seleção
+        const shootThreshold = 5.5 + profile.shootAppetite * 3.5; 
+        const randomShotRisk = distToGoal < shootThreshold && Math.random() < (profile.shootAppetite * 0.8);
         let shootAtGoal = goalPathClear || game.getTeamTouchesLeft() <= 3 || randomShotRisk;
 
         let target = shootTarget.clone();
@@ -107,7 +135,8 @@ export class CPUAgent {
                 const blocked = CPUAgent.isCorridorBlocked(game, ballPos, matePos, ball.radius, [ball.mesh, mate.mesh]);
                 const advance = ballPos.z - matePos.z;
                 
-                let advanceScore = advance * (goalDiff >= 1 ? 0.22 : 0.15); // Avança mais agressivamente se estiver perdendo
+                // Avança de forma mais assertiva se for uma equipe com alto apetite ofensivo
+                let advanceScore = advance * (profile.shootAppetite * 0.22); 
                 if (isCrossingSituation) {
                     const inBoxX = Math.abs(matePos.x) < 2.5;
                     const inBoxZ = matePos.z < -2.8 && matePos.z > -7.0;
@@ -137,7 +166,6 @@ export class CPUAgent {
         for (const piece of candidates) {
             const contact = ballPos.subtract(desired.scale(ball.radius + piece.spec.radius));
 
-            // Travas físicas de campo
             const maxContactX = Arena.FIELD_W / 2 - piece.spec.radius - 0.05;
             contact.x = Math.max(-maxContactX, Math.min(maxContactX, contact.x));
             const maxContactZ = Arena.GOAL_LINE_Z - piece.spec.radius - 0.05;
@@ -170,9 +198,6 @@ export class CPUAgent {
 
         let impulse: number;
         if (shootAtGoal) {
-            // Calibração de força: Evita que o perfil inclinado de acrílico dos botões (bainha)
-            // funcione como rampa e decole a bola em chutes distantes, fazendo-a bater no travessão.
-            // Para distâncias maiores que 6.5m, dosamos a força entre 13.0 e 15.5 para manter o chute rasante.
             impulse = distToGoal > 6.5 
                 ? Math.min(13.0 + distToGoal * 0.3, 15.5) 
                 : MomentumSoccerGame.MAX_IMPULSE;
@@ -193,7 +218,7 @@ export class CPUAgent {
         
         impulse = Math.min(impulse, game.getEnergyImpulseCap(best.piece));
 
-        // ── APLICAÇÃO DO RUÍDO DE DISPERSÃO ADAPTATIVO (DDA) ──
+        // Aplicação do erro de precisão (noiseFactor) derivado do perfil da seleção
         const noise = (Math.random() - 0.5) * noiseFactor * (1.2 - Math.max(best.align, 0));
         const cos = Math.cos(noise), sin = Math.sin(noise);
         const dx = best.dir.x * cos - best.dir.z * sin;
