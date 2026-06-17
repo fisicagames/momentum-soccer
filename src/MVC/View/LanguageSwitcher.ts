@@ -14,7 +14,7 @@ export class LanguageSwitcher {
                 "Objetivo: derrote a CPU neste futebol de botão por turnos com 12 toques! Use a física a seu favor: domine o momento linear (p=m·v) e a energia das peças. Vença aliando tática e ciência!",
                 "Objective: defeat the CPU in this turn-based button soccer game with 12 touches! Use physics to your advantage: master linear momentum (p=m·v) and piece energy. Win by combining tactics and science!"
             ],
-            TextblockTitle: ["Momentum Cup\n2026", "Momentum Cup\n2026"],
+            TextblockTitle: ["Momentum\nCup 2026", "Momentum\nCup 2026"],
             ButtonMenuStartA: ["Iniciar", "Start"],
             TextblockMenuScore: ["Campanha geral:", "Overall Record:"],
             TextblockMusic: ["Sons:", "Sounds:"]
