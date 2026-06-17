@@ -475,10 +475,11 @@ export class GameHUD {
         const kinetic = 0.5 * mass * velocity * velocity;
         const power = kinetic / 0.1;
 
+        // ── ATUALIZAÇÃO PEDAGÓGICA: Adição de (Δt = 0,1 s) dinâmico e localizado ──
         this.aimTxt.text =
             `m = ${this.fmt(mass, 1)} kg | v = ${this.fmt(velocity, 1)} m/s\n` +
             `p = ${this.fmt(impulse, 1)} kg·m/s\n` +
-            `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W`;
+            `K = ${this.fmt(kinetic, 1)} J | P = ${this.fmt(power, 1)} W (Δt = ${this.fmt(0.1, 1)} s)`;
 
         const low = energyLeft - kinetic <= energyLowThreshold;
         this.aimEnergyTxt.text =
