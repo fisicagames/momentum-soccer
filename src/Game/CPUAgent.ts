@@ -67,15 +67,17 @@ export class CPUAgent {
         
         if (candidates.length === 0) return;
 
-        // ── DETERMINAÇÃO DO ALVO (MIRA ADAPTATIVA) ──
+        // ── DETERMINAÇÃO DO ALVO (MIRA ADAPTATIVA CALIBRADA) ──
         let shootTarget = playerGoal.clone();
         if (smartAim) {
             const opponentGk = game.getPlayerPieces().find(p => p.spec.id === "goalkeeper");
             if (opponentGk) {
                 const gkX = opponentGk.mesh.position.x;
-                shootTarget.x = gkX >= 0 ? -1.22 : 1.22; // Canto oposto do goleiro
+                // Calibração de segurança: Ajustado de 1.22 para 0.95 para garantir que a bola
+                // entre de forma limpa, criando um colchão físico de segurança contra a trave (que fica em 1.50).
+                shootTarget.x = gkX >= 0 ? -0.95 : 0.95; 
             } else {
-                shootTarget.x = Math.random() < 0.5 ? -1.22 : 1.22;
+                shootTarget.x = Math.random() < 0.5 ? -0.95 : 0.95;
             }
         }
 
