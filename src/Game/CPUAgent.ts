@@ -53,6 +53,10 @@ export class CPUAgent {
             minPassImpulse = 2.4;
         }
 
+        noiseFactor = 0.00;
+        smartAim = true;
+        minPassImpulse = 3.4;
+
         // ── REGRA TÁTICA DA PEQUENA ÁREA ──
         const isBallInSmallArea = ballPos.z >= Arena.GOAL_LINE_Z - Arena.AREA_D - 0.1 
             && Math.abs(ballPos.x) <= Arena.AREA_W / 2 + 0.1;

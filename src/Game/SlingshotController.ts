@@ -258,11 +258,12 @@ export class SlingshotController {
 
         this._dir.copyFrom(this._dragVec).normalize();
 
-        // ── CURVA EXPOENCIAL DE PRECISÃO AJUSTADA (1.8) ──
-        // O expoente de 1.8 empurra a ativação das forças médias e fortes ainda mais para trás,
-        // garantindo que pequenos arrastes de ajuste fino ocorram a uma distância muito confortável do botão.
+        // ── CURVA EXPOENCIAL DE PRECISÃO EQUILIBRADA (1.6) ──
+        // O expoente de 1.6 harmoniza de forma excelente com o arraste máximo de 2.6,
+        // garantindo que pequenos toques mantenham o dedo fora da oclusão, mas chutes fortes
+        // não exijam movimentos desconfortavelmente longos.
         const fraction = dragLen / this.opts.maxDrag;
-        const nonLinearFraction = Math.pow(fraction, 1.8); 
+        const nonLinearFraction = Math.pow(fraction, 1.6); 
         const impulse = nonLinearFraction * this.opts.maxImpulse;
         
         const velocity = impulse / piece.spec.mass;
