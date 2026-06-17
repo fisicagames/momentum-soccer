@@ -138,8 +138,13 @@ export class Controller {
             this.game = null;
         }
         
-        // ── CORREÇÃO: Pausa o som do estádio ao retornar para o menu inicial ──
-        this.model.pauseMusic();
+        // ── CORREÇÃO: Pausa o estádio e inicia a trilha Synth-pop do menu de forma segura ──
+        const modelImpl = this.model as any;
+        if (typeof modelImpl.stopGameplay === "function") {
+            modelImpl.stopGameplay();
+        } else {
+            this.model.pauseMusic();
+        }
 
         this.updateMenuRecord();
         this.view.updateMainMenuVisibility(true);
@@ -159,8 +164,13 @@ export class Controller {
         this.game.setOnGameOver(() => this.model.pauseMusic());
         this.game.setOnGameResume(() => this.model.resumeMusic());
         
-        //Inicia o som de torcida somente quando a partida começa de fato ──
-        this.model.resumeMusic();
+        // ── CORREÇÃO: Pausa o Synth-pop e inicia o som de estádio de forma segura ──
+        const modelImpl = this.model as any;
+        if (typeof modelImpl.startGameplay === "function") {
+            modelImpl.startGameplay();
+        } else {
+            this.model.resumeMusic();
+        }
 
         this.view.showMenuButton();
     }
