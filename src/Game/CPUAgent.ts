@@ -166,7 +166,12 @@ export class CPUAgent {
 
         let impulse: number;
         if (shootAtGoal) {
-            impulse = MomentumSoccerGame.MAX_IMPULSE;
+            // Calibração de força: Evita que o perfil inclinado de acrílico dos botões (bainha)
+            // funcione como rampa e decole a bola em chutes distantes, fazendo-a bater no travessão.
+            // Para distâncias maiores que 6.5m, dosamos a força entre 13.0 e 15.5 para manter o chute rasante.
+            impulse = distToGoal > 6.5 
+                ? Math.min(13.0 + distToGoal * 0.3, 15.5) 
+                : MomentumSoccerGame.MAX_IMPULSE;
         } else {
             const travel = Vector3.Distance(ballPos, target);
             const vBall = Math.min(2.5 + travel * 0.75, 5.0); 
