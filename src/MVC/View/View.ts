@@ -134,11 +134,23 @@ export class View implements IView {
 
         const isPT = () => this.languageSwitcher.getCurrentLanguage() === 0;
 
+        // Lista de classificação para renderização de estrelas
+        const eliteTeams = ["brazil", "germany", "argentina", "france", "england", "portugal", "netherlands", "belgium", "spain"];
+        const structuredTeams = ["australia", "austria", "colombia", "korea_republic", "cote_d_ivoire", "croatia", "egypt", "ecuador", "usa", "japan", "morocco", "mexico", "norway", "senegal", "sweden", "switzerland", "turkiye", "uruguay"];
+
+        const getStars = (teamId: string): string => {
+            if (eliteTeams.includes(teamId)) return " ★★★";
+            if (structuredTeams.includes(teamId)) return " ★★☆";
+            return " ★☆☆";
+        };
+
         const updateTeamTexts = () => {
             const pTeam = teamList[this.playerTeamIdx];
             const cTeam = teamList[this.cpuTeamIdx];
+            
+            // Exibe a bandeira, o nome traduzido e a classificação por estrelas de forma compacta
             this.playerRowValue.text = `${pTeam.flag}  ${isPT() ? pTeam.namePt : pTeam.nameEn}`;
-            this.cpuRowValue.text = `${cTeam.flag}  ${isPT() ? cTeam.namePt : cTeam.nameEn}`;
+            this.cpuRowValue.text = `${cTeam.flag}  ${isPT() ? cTeam.namePt : cTeam.nameEn}\n${getStars(cTeam.id)}`;
         };
 
         // Linha de escolha: Seu Time (Player) - espaçamento ajustado
