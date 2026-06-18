@@ -27,6 +27,17 @@ import { CPUAgent } from "./CPUAgent";
 
 type GameState = "PLAYER_AIM" | "CPU_TURN" | "ROLLING" | "GOAL_PAUSE" | "HALF_TIME" | "GAMEOVER";
 
+// ── CACHE DE RECURSOS PESADOS ENTRE PARTIDAS ──────────────────────────────
+// A Scene persiste durante todo o ciclo menu↔jogo, então o módulo WASM do
+// Havok, os áudios e a textura de partículas são carregados uma única vez e
+// reutilizados a cada nova partida — evitando rebaixá-los da rede no início
+// de cada jogo (cada partida ainda cria um HavokPlugin novo a partir do WASM
+// já instanciado).
+let cachedHavok: Awaited<ReturnType<typeof HavokPhysics>> | null = null;
+let cachedWhistle: StaticSound | null = null;
+let cachedImpact: StaticSound | null = null;
+let cachedFlare: Texture | null = null;
+
 /**
  * Momentum Cup 2026 — futebol de botão por turnos para ensinar momento linear
  * e conservação de energia.
@@ -155,9 +166,13 @@ export class MomentumSoccerGame {
 
     public async start(): Promise<void> {
         RegisterJoinedPhysicsEngineComponent();
-        const wasmUrl = new URL("assets/wasm/HavokPhysics.wasm", document.baseURI).href;
-        const havok = await HavokPhysics({ locateFile: () => wasmUrl });
-        this.plugin = new HavokPlugin(true, havok);
+        // Instancia o WASM do Havok apenas na primeira partida; nas seguintes,
+        // reutiliza o módulo já em memória (evita rebaixar 658 kB a cada jogo).
+        if (!cachedHavok) {
+            const wasmUrl = new URL("assets/wasm/HavokPhysics.wasm", document.baseURI).href;
+            cachedHavok = await HavokPhysics({ locateFile: () => wasmUrl });
+        }
+        this.plugin = new HavokPlugin(true, cachedHavok);
         if (!this.scene.enablePhysics(new Vector3(0, -9.81, 0), this.plugin)) {
             throw new Error("MomentumSoccerGame: enablePhysics falhou — physics engine não registrada.");
         }
@@ -174,13 +189,19 @@ export class MomentumSoccerGame {
         // ── AGUARDA O CARREGAMENTO DOS AUDIO BUFFERS (Failsafe de Corrida de Inicialização) ──
         // O uso do await garante que os arquivos estejam na memória antes de autorizar o kickoff automático.
         try {
-            this.whistleSound = await CreateSoundAsync("whistle", "./assets/sounds/freesound_community-metal-whistle-6121-compress.mp3", { loop: false });
+            if (!cachedWhistle) {
+                cachedWhistle = await CreateSoundAsync("whistle", "./assets/sounds/freesound_community-metal-whistle-6121-compress.mp3", { loop: false });
+            }
+            this.whistleSound = cachedWhistle;
         } catch (e) {
             console.error("MomentumSoccerGame: Falha ao inicializar áudio de apito.", e);
         }
 
         try {
-            this.impactSound = await CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false });
+            if (!cachedImpact) {
+                cachedImpact = await CreateSoundAsync("impact", "./assets/sounds/universfield-ground-impact-352053.mp3", { loop: false });
+            }
+            this.impactSound = cachedImpact;
         } catch (e) {
             console.error("MomentumSoccerGame: Falha ao inicializar áudio de impacto.", e);
         }
@@ -675,7 +696,13 @@ export class MomentumSoccerGame {
     // ── PARTÍCULAS ───────────────────────────────────────────────────────────
 
     private buildParticles(): void {
-        const flare = new Texture("https://assets.babylonjs.com/textures/flare.png", this.scene);
+        // Textura de partículas carregada uma única vez e reutilizada entre
+        // partidas (os ParticleSystem.dispose() não a liberam — disposeTexture
+        // é false por padrão), evitando refazer o fetch remoto a cada jogo.
+        if (!cachedFlare) {
+            cachedFlare = new Texture("https://assets.babylonjs.com/textures/flare.png", this.scene);
+        }
+        const flare = cachedFlare;
 
         this.sparkSystem = new ParticleSystem("sparks", 400, this.scene);
         this.sparkSystem.particleTexture = flare;
@@ -1326,10 +1353,14 @@ export class MomentumSoccerGame {
         this.plugin.onTriggerCollisionObservable.remove(this.triggerObserver);
         this.slingshot.dispose();
 
+        // Os ParticleSystem.dispose() não liberam a textura (cachedFlare) por
+        // padrão — ela é reutilizada na próxima partida.
         this.sparkSystem.dispose();
         this.confettiSystem.dispose();
-        this.impactSound?.dispose();
-        this.whistleSound?.dispose();
+        // Áudios NÃO são descartados: são cacheados em nível de módulo e
+        // reaproveitados pela próxima partida (evita rebaixá-los da rede).
+        this.whistleSound = null;
+        this.impactSound = null;
 
         this.hud.dispose();
 
