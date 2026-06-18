@@ -696,11 +696,12 @@ export class MomentumSoccerGame {
     // ── PARTÍCULAS ───────────────────────────────────────────────────────────
 
     private buildParticles(): void {
-        // Textura de partículas carregada uma única vez e reutilizada entre
-        // partidas (os ParticleSystem.dispose() não a liberam — disposeTexture
-        // é false por padrão), evitando refazer o fetch remoto a cada jogo.
+        // Textura de partículas servida localmente (independência de rede) e
+        // carregada uma única vez, reutilizada entre partidas (os
+        // ParticleSystem.dispose() não a liberam — disposeTexture é false por
+        // padrão), evitando qualquer fetch a cada jogo.
         if (!cachedFlare) {
-            cachedFlare = new Texture("https://assets.babylonjs.com/textures/flare.png", this.scene);
+            cachedFlare = new Texture("./assets/textures/flare.png", this.scene);
         }
         const flare = cachedFlare;
 
