@@ -441,7 +441,8 @@ export class MomentumSoccerGame {
         this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
         this.refillEnergy();
         if (!this.kickoffActive && this.ballNeedsGoalKick(team)) {
-            this.goalKickReposition(team);
+            // Passa 'false' pois a bola permaneceu dentro do campo durante a transição
+            this.goalKickReposition(team, false); 
         }
         this.enterTurnState();
     }
@@ -457,11 +458,10 @@ export class MomentumSoccerGame {
     }
 
     /**
-     * Reposição automática do tiro de meta: bola no centro da linha frontal
-     * da pequena área e o goleiro logo atrás dela, alinhado para o chute de
-     * saída rumo ao campo adversário, ambos com velocidades zeradas.
+     * Reposição automática: posiciona a bola na linha frontal e o goleiro atrás.
+     * Diferencia visualmente saídas de bola de recuos normais na área.
      */
-    private goalKickReposition(team: Team): void {
+    private goalKickReposition(team: Team, isOutOfBounds: boolean): void {
         const side = team === "player" ? -1 : 1;
         const areaLineZ = side * (Arena.GOAL_LINE_Z - Arena.AREA_D);
 
@@ -485,7 +485,12 @@ export class MomentumSoccerGame {
         this.teleport(this.ball.mesh, this._tmp.set(0, 0.19, areaLineZ), this.ball.aggregate);
         this.teleport(goalkeeper.mesh, this._tmp.set(0, goalkeeper.home.y, gkZ), goalkeeper.aggregate);
 
-        this.hud.showAlert(this.t("⚽ Tiro de Meta!", "⚽ Goal Kick!"), "#CCCCCC");
+        // ── DIFERENCIAÇÃO DIDÁTICA DO BANNER ──
+        if (isOutOfBounds) {
+            this.hud.showAlert(this.t("⚽ Tiro de Meta!", "⚽ Goal Kick!"), "#CCCCCC");
+        } else {
+            this.hud.showAlert(this.t("Saída do Goleiro!", "Goalkeeper Ball!"), "#9FD4FF");
+        }
     }
 
     private resolveShot(): void {
@@ -993,9 +998,8 @@ export class MomentumSoccerGame {
                 this.teamTouchesLeft = MomentumSoccerGame.TEAM_TOUCHES;
                 this.refillEnergy();
 
-                // Executa a reposição física do goleiro diretamente (garante o posicionamento
-                // na pequena área, neutralizando o teleporte indesejado do safetyFilter)
-                this.goalKickReposition(defendingTeam);
+                // Passa 'true' pois a bola cruzou a linha de fundo
+                this.goalKickReposition(defendingTeam, true);
 
                 // Apita para autorizar a reposição de bola em jogo
                 this.playWhistle("play_restart");
