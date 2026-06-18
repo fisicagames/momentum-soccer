@@ -35,7 +35,7 @@ export class MomentumSoccerGame {
     public static readonly MAX_IMPULSE = 18;
     public static readonly KICKOFF_MAX_IMPULSE = 1.6; // Força do kickoff calibrada em 1.6
     // ── CONFIGURAÇÃO DE CONTROLE DE ARRASTO ERGONÔMICO ──
-    // Aumentado em 1.5x (de 2.2 para 3.3) para afastar a área de toque e evitar a oclusão do dedo
+    // Ajustado para 2.6 (original era 2.2) de forma equilibrada para afastar a área de toque e evitar a oclusão do dedo
     private static readonly MAX_DRAG = 2.6;
 
     private static readonly HALF_SECONDS = 180;
@@ -138,6 +138,9 @@ export class MomentumSoccerGame {
     // ── GETTERS DE CONFIGURAÇÃO DE TIMES ATIVOS ──
     public getPlayerTeamConfig(): TeamConfig { return this.playerTeamConfig; }
     public getCpuTeamConfig(): TeamConfig { return this.cpuTeamConfig; }
+
+    // Armazena o ID do timeout de kickoff para cancelamento seguro no dispose
+    private kickoffTimeoutId: any = null;
 
     constructor(scene: Scene, playerTeamId: string = "brazil", cpuTeamId: string = "germany") {
         this.scene = scene;
@@ -404,7 +407,6 @@ export class MomentumSoccerGame {
     private executeAutomaticKickoff(team: Team): void {
         const ownPieces = team === "player" ? this.playerPieces : this.cpuPieces;
         
-        // ── FAILSAFE PARA EXPULSÃO NO CHUTE DE RECUO AUTOMÁTICO ──
         let piece = ownPieces.find(p => p.spec.id === "center_forward");
         if (!piece) {
             piece = ownPieces.find(p => p.spec.id !== "goalkeeper") || ownPieces[0];
@@ -419,14 +421,17 @@ export class MomentumSoccerGame {
         const dx = dir.x * cos - dir.z * sin;
         const dz = dir.x * sin + dir.z * cos;
 
-        // Força de saída direta puxada da constante estática (1.6) para um recuo firme
         const impulse = MomentumSoccerGame.KICKOFF_MAX_IMPULSE;
-        
-        // Criamos um vetor local isolado para que o loop da câmera (updateCamera)
-        // não sobrescreva a direção do chute durante os 60ms de espera física
         const impulseVector = new Vector3(dx * impulse, 0, dz * impulse);
 
-        setTimeout(() => {
+        // Limpa qualquer timeout pendente anterior por segurança
+        if (this.kickoffTimeoutId) {
+            clearTimeout(this.kickoffTimeoutId);
+        }
+
+        // Guarda o ID para cancelamento preventivo
+        this.kickoffTimeoutId = setTimeout(() => {
+            this.kickoffTimeoutId = null; // Reseta após a execução
             if (this.gameState === "ROLLING" || this.gameState === "PLAYER_AIM" || this.gameState === "CPU_TURN") {
                 piece.aggregate.body.applyImpulse(impulseVector, piece.mesh.getAbsolutePosition());
             }
@@ -1295,12 +1300,13 @@ export class MomentumSoccerGame {
         return this.currentLang === 0 ? pt : en;
     }
 
-    private fmt(n: number, dec: number): string {
-        const s = n.toFixed(dec);
-        return this.currentLang === 0 ? s.replace(".", ",") : s;
-    }
-
     public dispose(): void {
+        // Cancela o timeout pendente para evitar vazamentos e erros de memória de colisão assíncrona
+        if (this.kickoffTimeoutId) {
+            clearTimeout(this.kickoffTimeoutId);
+            this.kickoffTimeoutId = null;
+        }
+
         this.scene.onBeforeRenderObservable.remove(this.gameLoopObserver);
         this.plugin.onTriggerCollisionObservable.remove(this.triggerObserver);
         this.slingshot.dispose();

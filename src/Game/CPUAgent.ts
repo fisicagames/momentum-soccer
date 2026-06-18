@@ -15,9 +15,8 @@ interface AIProfile {
 }
 
 /**
- * Agente de Inteligência Artificial para a CPU (Physics Cup 2026).
+ * Agente de Inteligência Artificial para a CPU (Momentum Cup 2026).
  * 
- * Versão tática baseada em atributos de seleções, eliminando o DDA artificial.
  */
 export class CPUAgent {
     private static readonly BLOCKED_PENALTY = 0.15;
