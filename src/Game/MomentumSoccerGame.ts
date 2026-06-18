@@ -142,6 +142,10 @@ export class MomentumSoccerGame {
     // Armazena o ID do timeout de kickoff para cancelamento seguro no dispose
     private kickoffTimeoutId: any = null;
 
+    // Sentinela de descarte: invalida callbacks assíncronos (setTimeout) que
+    // tocariam corpos físicos ou a HUD após a partida ser destruída pelo dispose.
+    private isDisposed = false;
+
     constructor(scene: Scene, playerTeamId: string = "brazil", cpuTeamId: string = "germany") {
         this.scene = scene;
         // Consome os dados de seleções de forma segura através do TeamRegistry
@@ -432,6 +436,7 @@ export class MomentumSoccerGame {
         // Guarda o ID para cancelamento preventivo
         this.kickoffTimeoutId = setTimeout(() => {
             this.kickoffTimeoutId = null; // Reseta após a execução
+            if (this.isDisposed) return;
             if (this.gameState === "ROLLING" || this.gameState === "PLAYER_AIM" || this.gameState === "CPU_TURN") {
                 piece.aggregate.body.applyImpulse(impulseVector, piece.mesh.getAbsolutePosition());
             }
@@ -871,6 +876,7 @@ export class MomentumSoccerGame {
 
     private setupGameLoop(): void {
         this.gameLoopObserver = this.scene.onBeforeRenderObservable.add(() => {
+            if (this.isDisposed) return;
             const dt = this.scene.getEngine().getDeltaTime() / 1000;
             this.stateTime += dt;
 
@@ -995,6 +1001,7 @@ export class MomentumSoccerGame {
             this.hud.showAlert(this.t("⚽ Tiro de Meta!", "⚽ Goal Kick!"), "#CCCCCC");
 
             setTimeout(() => {
+                if (this.isDisposed) return;
                 this.isEndlineSequenceActive = false;
                 if (this.gameState !== "GOAL_PAUSE") return; // failsafe caso dê reset no meio
 
@@ -1016,6 +1023,7 @@ export class MomentumSoccerGame {
             this.hud.showAlert(this.t("🚩 Escanteio!", "🚩 Corner Kick!"), "#FFD24A");
 
             setTimeout(() => {
+                if (this.isDisposed) return;
                 this.isEndlineSequenceActive = false;
                 if (this.gameState !== "GOAL_PAUSE") return; // failsafe
 
@@ -1129,6 +1137,7 @@ export class MomentumSoccerGame {
         this.enterState("GOAL_PAUSE");
 
         setTimeout(() => {
+            if (this.isDisposed) return;
             this.hud.hideGoal();
             if (this.gameState !== "GOAL_PAUSE") return;
             this.resetFormation();
@@ -1170,6 +1179,7 @@ export class MomentumSoccerGame {
             this.playWhistle("halftime");
 
             setTimeout(() => {
+                if (this.isDisposed) return;
                 this.hud.hideGoal();
                 if (this.gameState !== "HALF_TIME") return;
                 this.half = 2;
@@ -1301,6 +1311,11 @@ export class MomentumSoccerGame {
     }
 
     public dispose(): void {
+        // Marca o descarte ANTES de qualquer liberação: callbacks de setTimeout
+        // já enfileirados (gol, intervalo, tiro de meta/escanteio) verificam esta
+        // flag e abortam, evitando teleport/applyImpulse em corpos já destruídos.
+        this.isDisposed = true;
+
         // Cancela o timeout pendente para evitar vazamentos e erros de memória de colisão assíncrona
         if (this.kickoffTimeoutId) {
             clearTimeout(this.kickoffTimeoutId);
