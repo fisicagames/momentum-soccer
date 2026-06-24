@@ -68,6 +68,7 @@ export class View implements IView {
 
         this.buttonMenuStartA = this.advancedTexture.getControlByName("ButtonMenuStartA") as Button;
         this.textblockMenuBest = this.advancedTexture.getControlByName("TextblockMenuBest") as TextBlock;
+        this.textblockMenuBest.fontFamily = '"Twemoji Country Flags", Arial, sans-serif';
         this.textblockMenuMusic = this.advancedTexture.getControlByName("TextblockMenuMusic") as TextBlock;
         this.buttonLang = this.advancedTexture.getControlByName("ButtonLang") as Button;
         this.buttonResetStats = this.advancedTexture.getControlByName("ButtonResetStats") as Button;
@@ -302,6 +303,7 @@ export class View implements IView {
 
         // Bloco de Texto central de exibição da Seleção
         const valueTxt = new TextBlock();
+        valueTxt.fontFamily = '"Twemoji Country Flags", Arial, sans-serif';
         const team = getCurrentTeam();
         valueTxt.text = `${team.flag}  ${this.languageSwitcher.getCurrentLanguage() === 0 ? team.namePt : team.nameEn}`;
         valueTxt.color = "white";

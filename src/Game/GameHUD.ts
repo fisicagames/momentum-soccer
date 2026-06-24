@@ -107,6 +107,7 @@ export class GameHUD {
         this.topBar.addControl(scorePanel);
 
         this.playerScoreTxt = new TextBlock("playerScore", "");
+        this.playerScoreTxt.fontFamily = '"Twemoji Country Flags", Arial, sans-serif';
         this.playerScoreTxt.color = "white";
         this.playerScoreTxt.fontSize = 17;
         this.playerScoreTxt.fontWeight = "bold";
@@ -123,6 +124,7 @@ export class GameHUD {
         scorePanel.addControl(this.vsTxt);
 
         this.cpuScoreTxt = new TextBlock("cpuScore", "");
+        this.cpuScoreTxt.fontFamily = '"Twemoji Country Flags", Arial, sans-serif';
         this.cpuScoreTxt.color = "white";
         this.cpuScoreTxt.fontSize = 17;
         this.cpuScoreTxt.fontWeight = "bold";
